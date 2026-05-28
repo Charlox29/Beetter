@@ -4,11 +4,6 @@ from influxdb_client import InfluxDBClient
 # 1. On initialise l'API (le serveur de restaurant)
 app = Flask(__name__)
 
-# 2. Vos identifiants InfluxDB (La clé de la cuisine)
-INFLUX_URL = "http://192.168.1.149:8086/" # Mettez l'IP du Raspberry si vous codez sur votre PC
-INFLUX_TOKEN = "3D2K4cFn-oVjJVg9U7ENqTKF9QyM0LDDYuQs7Ch64VRaYn9hnym_XPXuZZjsx0NRkHX5X6Dy_99YTU_sZtRx_A=="
-INFLUX_ORG = "beetter"
-INFLUX_BUCKET = "sensors"
 from flask import Flask, jsonify
 from influxdb_client import InfluxDBClient
 
@@ -16,7 +11,7 @@ app = Flask(__name__)
 
 # Identifiants InfluxDB
 INFLUX_URL = "http://192.168.1.149:8086/" 
-INFLUX_TOKEN = "3D2K4cFn-oVjJVg9U7ENqTKF9QyM0LDDYuQs7Ch64VRaYn9hnym_XPXuZZjsx0NRkHX5X6Dy_99YTU_sZtRx_A=="
+INFLUX_TOKEN = "dAQ-VFTMYhWf26O82xyvWYgL5NUvAoipdL7lJ9pq6KMlPc9Uoj1QrB9Eh1EQh5o72GY-xGseRrPsDF5tfxe-wg=="
 INFLUX_ORG = "beetter"
 INFLUX_BUCKET = "sensors"
 

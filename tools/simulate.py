@@ -42,8 +42,10 @@ def simulate_reading(beehive_id: int, when: datetime) -> dict:
 
     return {
         "beehive_id": beehive_id,
-        "temperature": round(temp, 2),
-        "humidity":    round(max(0, min(100, hum)), 2),
+        "temperature_int": round(temp, 2),
+        "humidity_int":    round(max(0, min(100, hum)), 2),
+        "temperature_ext": round(temp, 2),
+        "humidity_ext":    round(max(0, min(100, hum)), 2),
         "timestamp":   when.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 

@@ -55,8 +55,10 @@ def send(url: str, payload: dict) -> bool:
         r = requests.post(f"{url}/api/data", json=payload, timeout=5)
         if r.ok:
             print(f"  ✓  beehive={payload['beehive_id']}  "
-                  f"temp={payload['temperature']}°C  "
-                  f"hum={payload['humidity']}%  "
+                  f"Tint={payload['temperature_int']}°C  "
+                  f"Hint={payload['humidity_int']}%  "
+                  f"Text={payload['temperature_ext']}°C  "
+                  f"Hext={payload['humidity_ext']}%  "
                   f"@ {payload['timestamp']}")
             return True
         print(f"  ✗  HTTP {r.status_code}: {r.text}")

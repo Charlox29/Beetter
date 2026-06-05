@@ -21,9 +21,7 @@
         </div>
 
         <!-- Hamburger (mobile only) -->
-        <button class="hamburger" id="hamburger" aria-label="Ouvrir le menu" aria-expanded="false">
-            <span></span><span></span><span></span>
-        </button>
+        <!-- button moved into nav-controls to sit right of theme toggle -->
 
         <!-- Scrim overlay -->
         <div class="nav-scrim" id="nav-scrim"></div>
@@ -40,15 +38,14 @@
         </ul>
 
         <div class="nav-controls">
-            <a href="https://github.com/Charlox29/Beetter" target="_blank" class="github-link" aria-label="GitHub Repository">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path>
-                </svg>
-            </a>
+            
             <button id="lang-toggle" class="lang-btn" aria-label="Changer de langue">FR | EN</button>
             <button id="theme-toggle" class="theme-btn" aria-label="Basculer le thème">
                 <svg id="moon-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
                 <svg id="sun-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+            </button>
+            <button class="hamburger" id="hamburger" aria-label="Ouvrir le menu" aria-expanded="false">
+                <span></span><span></span><span></span>
             </button>
         </div>
     </nav>
@@ -58,8 +55,8 @@
         <div class="hero-content">
             <h1 class="lang-fr">L'avenir de l'apiculture est connecté.</h1>
             <h1 class="lang-en">The future of beekeeping is connected.</h1>
-            <p class="lang-fr">Système IoT de surveillance non-intrusive pour préserver la santé de vos colonies. Température, humidité, analyse acoustique — sans jamais ouvrir la ruche.</p>
-            <p class="lang-en">Non-intrusive IoT monitoring system to preserve the health of your colonies. Temperature, humidity, acoustic analysis — without ever opening the hive.</p>
+            <p class="lang-fr">Système IoT de surveillance non-intrusive pour préserver la santé de vos colonies. Température, humidité, analyse acoustique, sans jamais ouvrir la ruche.</p>
+            <p class="lang-en">Non-intrusive IoT monitoring system to preserve the health of your colonies. Temperature, humidity, acoustic analysis, without ever opening the hive.</p>
         </div>
         <div class="hero-graphic">
             <div class="hexagon hex-1"></div>
@@ -115,7 +112,7 @@
                 <div class="card">
                     <h3 class="lang-fr">Déficit Technologique</h3>
                     <h3 class="lang-en">Technological Deficit</h3>
-                    <p class="lang-fr">68 % des apiculteurs possèdent moins de 10 ruches. L'absence de solutions abordables impose des visites physiques stressantes pour les colonies — et les apiculteurs.</p>
+                    <p class="lang-fr">68 % des apiculteurs possèdent moins de 10 ruches. L'absence de solutions abordables impose des visites physiques stressantes pour les colonies et les apiculteurs.</p>
                     <p class="lang-en">68% of beekeepers own fewer than 10 hives. The lack of affordable solutions forces stressful physical visits for both colonies and beekeepers.</p>
                 </div>
             </div>
@@ -252,47 +249,8 @@
                     <h3 class="lang-en">🔊 Predictive Acoustic Analysis</h3>
                     <p class="lang-fr">Détection par FFT des signatures sonores : essaimage imminent (350-500 Hz), orphelinage (300-450 Hz), intrusion de frelons asiatiques (400-600 Hz). L'apiculture acoustique permet d'anticiper les crises sans intervention.</p>
                     <p class="lang-en">FFT detection of sound signatures: imminent swarming (350-500 Hz), queenless colony (300-450 Hz), Asian hornet intrusion (400-600 Hz). Acoustic beekeeping enables anticipating crises without intervention.</p>
-                    <!-- Tableau des fréquences -->
-                    <div style="overflow-x:auto; margin-top:1.2rem;">
-                        <table class="acoustic-table">
-                            <thead>
-                                <tr>
-                                    <th class="lang-fr">Événement</th><th class="lang-en">Event</th>
-                                    <th class="lang-fr">Fréquence</th><th class="lang-en">Frequency</th>
-                                    <th class="lang-fr">Alerte</th><th class="lang-en">Alert</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <tr>
-                                    <td class="lang-fr">Colonie calme</td><td class="lang-en">Calm colony</td>
-                                    <td>200–250 Hz</td>
-                                    <td><span class="badge badge-ok lang-fr">Normal</span><span class="badge badge-ok lang-en">Normal</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="lang-fr">Stress léger</td><td class="lang-en">Mild stress</td>
-                                    <td>300–400 Hz</td>
-                                    <td><span class="badge badge-warn lang-fr">Surveillance</span><span class="badge badge-warn lang-en">Watch</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="lang-fr">Essaimage imminent</td><td class="lang-en">Imminent swarm</td>
-                                    <td>350–500 Hz</td>
-                                    <td><span class="badge badge-crit lang-fr">Alerte</span><span class="badge badge-crit lang-en">Alert</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="lang-fr">Intrusion frelon</td><td class="lang-en">Hornet intrusion</td>
-                                    <td>400–600 Hz</td>
-                                    <td><span class="badge badge-crit lang-fr">Alerte</span><span class="badge badge-crit lang-en">Alert</span></td>
-                                </tr>
-                                <tr>
-                                    <td class="lang-fr">Orphelinage</td><td class="lang-en">Queenless</td>
-                                    <td>300–450 Hz</td>
-                                    <td><span class="badge badge-crit lang-fr">Alerte</span><span class="badge badge-crit lang-en">Alert</span></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    
                 </div>
-                <div style="display:flex;flex-direction:column;gap:1.5rem;">
                     <div class="tech-item">
                         <h3 class="lang-fr">☀️ Autonomie Énergétique Solaire</h3>
                         <h3 class="lang-en">☀️ Solar Energy Autonomy</h3>
@@ -338,29 +296,6 @@
                     <h3 class="lang-en">Backend Infrastructure</h3>
                     <p class="lang-fr"><strong>Beetter Home</strong> : <strong>Raspberry Pi 5</strong> · <strong>Flask 3</strong> · <strong>InfluxDB 2</strong> (time-series) · <strong>PostgreSQL</strong> (métadonnées) · <strong>Docker Compose</strong> · <strong>APScheduler</strong> pour le push périodique vers le VPS cloud.</p>
                     <p class="lang-en"><strong>Beetter Home</strong>: <strong>Raspberry Pi 5</strong> · <strong>Flask 3</strong> · <strong>InfluxDB 2</strong> (time-series) · <strong>PostgreSQL</strong> (metadata) · <strong>Docker Compose</strong> · <strong>APScheduler</strong> for periodic push to the cloud VPS.</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- ══════════════════════ VESPA VELUTINA ══════════════════════ -->
-    <section id="mini-jeu-section" class="section" style="border-top:1px solid var(--border-color);">
-        <div class="container">
-            <div class="grid-2" style="align-items:center;">
-                <div class="game-content">
-                    <h2 class="lang-fr" style="margin-bottom:1rem;">La Menace <em>Vespa velutina</em></h2>
-                    <h2 class="lang-en" style="margin-bottom:1rem;">The <em>Vespa velutina</em> Threat</h2>
-                    <p class="lang-fr" style="color:var(--text-secondary);margin-bottom:2rem;">
-                        Le frelon asiatique est un prédateur spécialisé qui chasse en vol stationnaire devant la ruche. L'algorithme Beetter identifie sa signature acoustique distincte (140–185 Hz, vol stationnaire basse fréquence) pour alerter l'apiculteur avant la décimation de la colonie.
-                    </p>
-                    <p class="lang-en" style="color:var(--text-secondary);margin-bottom:2rem;">
-                        The Asian hornet is a specialized predator that hunts in a hover flight in front of the hive. The Beetter algorithm identifies its distinct acoustic signature (140–185 Hz, low-frequency hovering) to alert the beekeeper before the colony is decimated.
-                    </p>
-                    <a href="mini-jeu.html" class="cta-button lang-fr">🎮 Protéger la ruche : Mini-jeu</a>
-                    <a href="mini-jeu.html" class="cta-button lang-en">🎮 Protect the Hive: Mini-game</a>
-                </div>
-                <div class="game-image" style="text-align:center;">
-                    <img src="vespa_velutina.jpg" alt="Frelon asiatique - Vespa velutina" style="max-width:100%;border-radius:16px;box-shadow:0 10px 30px var(--shadow-accent);border:2px solid var(--accent);object-fit:cover;">
                 </div>
             </div>
         </div>
@@ -471,8 +406,31 @@
         </div>
     </section>
 
+    <!-- ══════════════════════ VESPA VELUTINA ══════════════════════ -->
+    <section id="mini-jeu-section" class="section bg-alt" style="border-top:1px solid var(--border-color);">
+        <div class="container">
+            <div class="grid-2" style="align-items:center;">
+                <div class="game-content">
+                    <h2 class="lang-fr" style="margin-bottom:1rem;">La Menace <em>Vespa velutina</em></h2>
+                    <h2 class="lang-en" style="margin-bottom:1rem;">The <em>Vespa velutina</em> Threat</h2>
+                    <p class="lang-fr" style="color:var(--text-secondary);margin-bottom:2rem;">
+                        Le frelon asiatique est un prédateur spécialisé qui chasse en vol stationnaire devant la ruche. L'algorithme Beetter identifie sa signature acoustique distincte (140–185 Hz, vol stationnaire basse fréquence) pour alerter l'apiculteur avant la décimation de la colonie.
+                    </p>
+                    <p class="lang-en" style="color:var(--text-secondary);margin-bottom:2rem;">
+                        The Asian hornet is a specialized predator that hunts in a hover flight in front of the hive. The Beetter algorithm identifies its distinct acoustic signature (140–185 Hz, low-frequency hovering) to alert the beekeeper before the colony is decimated.
+                    </p>
+                    <a href="mini-jeu.html" class="cta-button lang-fr">🎮 Protéger la ruche : Mini-jeu</a>
+                    <a href="mini-jeu.html" class="cta-button lang-en">🎮 Protect the Hive: Mini-game</a>
+                </div>
+                <div class="game-image" style="text-align:center;">
+                    <img src="vespa_velutina.jpg" alt="Frelon asiatique - Vespa velutina" style="max-width:100%;border-radius:16px;box-shadow:0 10px 30px var(--shadow-accent);border:2px solid var(--accent);object-fit:cover;">
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- ══════════════════════ RESSOURCES ══════════════════════ -->
-    <section class="section bg-alt" style="padding:4rem 0;">
+    <section class="section" style="padding:4rem 0;">
         <div class="container" style="text-align:center;">
             <h2 class="lang-fr" style="font-size:2rem;font-weight:800;margin-bottom:0.5rem;">Ressources du Projet</h2>
             <h2 class="lang-en" style="font-size:2rem;font-weight:800;margin-bottom:0.5rem;">Project Resources</h2>
@@ -486,9 +444,7 @@
                 <a href="Rapport_Projet_Beetter.pdf" target="_blank" class="resource-btn resource-btn-secondary">
                     📄 <span class="lang-fr">Rapport PDF</span><span class="lang-en">PDF Report</span>
                 </a>
-                <a href="mini-jeu.html" class="resource-btn resource-btn-secondary">
-                    🎮 <span class="lang-fr">Mini-jeu</span><span class="lang-en">Mini-game</span>
-                </a>
+                
             </div>
         </div>
     </section>

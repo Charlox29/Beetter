@@ -996,6 +996,11 @@ html {
 .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .hamburger.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
+/* Desktop: hide hamburger */
+@media (min-width: 901px) {
+    .hamburger { display: none !important; }
+}
+
 /* Mobile nav drawer */
 @media (max-width: 900px) {
     .hamburger { display: flex; }

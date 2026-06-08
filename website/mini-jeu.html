@@ -6,8 +6,75 @@
     <title>Mini-jeu Beetter</title>
 
     <link rel="icon" type="image/png" sizes="32x32" href="Logo_B.png">
-    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Styles spécifiques à la page du mini-jeu : boutons et éléments de navigation cohérents. -->
+    <style>
+        /* Bouton de jeu — taille et apparence identiques partout */
+        .game-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.9rem 2rem;
+            background-color: var(--accent);
+            color: #242423;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 1rem;
+            font-weight: 800;
+            border: 2px solid var(--accent);
+            border-radius: 30px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+            white-space: nowrap;
+            min-width: 180px;
+        }
+        .game-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 20px var(--shadow-accent);
+            background-color: var(--accent-hover);
+        }
+        .game-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Navbar — boutons Retour et FR|EN harmonisés */
+        .nav-link-button,
+        .lang-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1.1rem;
+            font-family: 'Inter', system-ui, sans-serif;
+            font-size: 0.9rem;
+            font-weight: 700;
+            border: 2px solid var(--accent);
+            border-radius: 20px;
+            background: transparent;
+            color: var(--accent);
+            cursor: pointer;
+            text-decoration: none;
+            white-space: nowrap;
+            transition: transform 0.2s ease, box-shadow 0.2s ease,
+                        background-color 0.2s ease, color 0.2s ease;
+        }
+        .nav-link-button:hover,
+        .lang-btn:hover {
+            background-color: var(--accent);
+            color: #242423;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 14px var(--shadow-accent);
+        }
+
+        /* Ruche plus compacte */
+        .hive-graphic {
+            font-size: 2.8rem !important;
+            padding: 0.7rem 1.2rem !important;
+            width: min(200px, 90%) !important;
+        }
+    </style>
 </head>
 <body class="no-scroll">
 
@@ -35,16 +102,11 @@
             </div>
 
             <div class="hive-stage">
-                <div class="hive-graphic">🏠🐝</span></div>
+                <div class="hive-graphic" id="hive-graphic">🏠🐝</div>
 
-                <!-- Légende visuelle -->
+                <!-- Légende visuelle : indications symboliques, masquée lorsque le jeu est actif. -->
                 <div class="game-legend" id="game-legend" style="display:none;">
-                    <div class="legend-item">
-                        <span style="font-size:1.8rem;filter:hue-rotate(320deg) brightness(0.7) saturate(3);">🐝</span>
-                    </div>
-                    <div class="legend-item">
-                        <span style="font-size:1.8rem;filter:drop-shadow(0 2px 4px rgba(245,203,92,0.6));">🐝</span>
-                    </div>
+                    <p>Tu as une autre chance..</p>
                 </div>
 
                 <div class="game-panel"> 
@@ -52,8 +114,8 @@
                         <p>SCORE : </p>
                         <span id="score-val">0</span>
                     </div>
-                    <button id="start-game-btn" class="cta-button lang-fr">🎮 Démarrer le jeu</button>
-                    <button id="start-game-btn-en" class="cta-button lang-en">🎮 Start game</button>
+                    <button id="start-game-btn" class="game-btn lang-fr">🎮 Démarrer le jeu</button>
+                    <button id="start-game-btn-en" class="game-btn lang-en">🎮 Start game</button>
                 </div>
             </div>
         </div>
@@ -71,14 +133,15 @@
             <div class="final-score" id="final-score">0</div>
             <p class="lang-fr" style="color:var(--text-secondary);margin-bottom:2rem;">frelons éliminés</p>
             <p class="lang-en" style="color:var(--text-secondary);margin-bottom:2rem;">hornets eliminated</p>
-            <button id="restart-btn" class="cta-button">
-                <span class="lang-fr">Rejouer</span>
-                <span class="lang-en">Play again</span>
+            <button id="restart-btn" class="game-btn">
+                <span class="lang-fr">🔄 Rejouer</span>
+                <span class="lang-en">🔄 Play again</span>
             </button>
         </div>
     </div>
 
     <script>
+        // Page script : gère le thème, la langue et les mécaniques du mini-jeu.
         // === THÈME ===
         const themeBtn = document.getElementById('theme-toggle');
         const sunIcon = document.getElementById('sun-icon');
@@ -106,6 +169,7 @@
         let score = 0;
         let gameInterval = null;
         let beeInterval = null;
+        let collisionCheckInterval = null;
         let gameActive = false;
         let hornetsKilled = 0;
 
@@ -119,6 +183,15 @@
         const finalScoreEl   = document.getElementById('final-score');
         const restartBtn     = document.getElementById('restart-btn');
         const gameLegend     = document.getElementById('game-legend');
+        const hiveGraphic    = document.getElementById('hive-graphic');
+
+        function getHiveRect() {
+            return hiveGraphic.getBoundingClientRect();
+        }
+
+        function rectsOverlap(r1, r2) {
+            return !(r1.right < r2.left || r1.left > r2.right || r1.bottom < r2.top || r1.top > r2.bottom);
+        }
 
         function showPopup(x, y, text, color) {
             const pop = document.createElement('div');
@@ -175,7 +248,24 @@
                 { transform: `translate(${endX}px, ${endY}px) ${scale}` }
             ], { duration, easing: 'linear' });
 
-            anim.onfinish = () => { if (document.body.contains(hornet)) hornet.remove(); };
+            // Check collision with hive every frame
+            let hornетAlive = true;
+            function checkHiveCollision() {
+                if (!gameActive || !hornетAlive) return;
+                if (!document.body.contains(hornet)) return;
+                const hornetRect = hornet.getBoundingClientRect();
+                const hiveRect = getHiveRect();
+                if (rectsOverlap(hornetRect, hiveRect)) {
+                    hornетAlive = false;
+                    hornet.remove();
+                    endGame('hive');
+                    return;
+                }
+                requestAnimationFrame(checkHiveCollision);
+            }
+            requestAnimationFrame(checkHiveCollision);
+
+            anim.onfinish = () => { hornетAlive = false; if (document.body.contains(hornet)) hornet.remove(); };
         }
 
         function spawnBee() {
@@ -207,7 +297,7 @@
                 showPopup(clientX, clientY, '-1 😢', '#ff9800');
                 this.remove();
                 if (score < 0) {
-                    endGame();
+                    endGame('bee');
                 }
             }
             bee.addEventListener('mousedown', handleBeeHit);
@@ -241,8 +331,7 @@
             beeInterval  = setInterval(spawnBee, 3000);
         }
 
-        function endGame() {
-            // Stop spawn timers and show overlay when score goes negative
+        function endGame(reason) {
             gameActive = false;
             clearInterval(gameInterval);
             clearInterval(beeInterval);
@@ -251,6 +340,24 @@
             beesContainer.innerHTML = '';
             hornetsContainer.innerHTML = '';
             finalScoreEl.textContent = hornetsKilled;
+
+            // Update game-over message depending on reason
+            const titleFr = gameOverEl.querySelector('h2.lang-fr');
+            const titleEn = gameOverEl.querySelector('h2.lang-en');
+            const subFr = gameOverEl.querySelector('p.lang-fr');
+            const subEn = gameOverEl.querySelector('p.lang-en');
+            if (reason === 'hive') {
+                if (titleFr) titleFr.textContent = '🐝 La ruche est envahie !';
+                if (titleEn) titleEn.textContent = '🐝 The hive is invaded!';
+                if (subFr) subFr.textContent = 'frelons éliminés avant l\'invasion';
+                if (subEn) subEn.textContent = 'hornets eliminated before invasion';
+            } else {
+                if (titleFr) titleFr.textContent = '🐝 Partie terminée !';
+                if (titleEn) titleEn.textContent = '🐝 Game over!';
+                if (subFr) subFr.textContent = 'frelons éliminés';
+                if (subEn) subEn.textContent = 'hornets eliminated';
+            }
+
             gameOverEl.style.display = 'flex';
             scoreBox.classList.remove('active');
         }
@@ -267,7 +374,6 @@
             startBtnFr.style.display = '';
             startBtnEn.style.display = '';
             scoreBox.classList.remove('active');
-            // restore legend and reset hive score display
             gameLegend.style.display = 'flex';
             score = 0;
             scoreVal.textContent = 0;

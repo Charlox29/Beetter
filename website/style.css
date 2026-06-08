@@ -2,6 +2,15 @@
 /* VARIABLES & RESET */
 /* ═══════════════════════════════════════════════════════════ */
 
+@font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: local('Inter');
+}
+
+/* Couleurs et tokens de base pour le thème clair et le thème sombre. */
 :root {
     --bg-primary: #E8EDDF;
     --bg-secondary: #CFDBD5;
@@ -37,7 +46,7 @@
 }
 
 body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
     background-color: var(--bg-primary);
     color: var(--text-primary);
     transition: background-color 0.3s ease, color 0.3s ease;
@@ -681,6 +690,7 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 /* RESOURCES */
 /* ═══════════════════════════════════════════════════════════ */
 
+/* Boutons de ressource centralisés et accessibles depuis l'encart projet. */
 .resources-row {
     display: flex;
     flex-wrap: wrap;
@@ -729,8 +739,10 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 /* FOOTER */
 /* ═══════════════════════════════════════════════════════════ */
 
+/* Style sombre du footer pour clore la page avec un contraste fort. */
 footer { 
-    background-color: var(--bg-secondary); 
+    background-color: #242423; 
+    color: #E8EDDF;
     padding: 4rem 0 2rem; 
     text-align: center; 
     border-top: 2px solid var(--accent); 
@@ -743,7 +755,7 @@ footer {
 }
 
 .footer-content p { 
-    color: var(--text-primary); 
+    color: #E8EDDF; 
     font-size: 1rem; 
     font-weight: 600; 
     margin-bottom: 2rem; 
@@ -765,6 +777,69 @@ footer {
     display: block; 
     margin-bottom: 0.5rem; 
     font-size: 1rem; 
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* STATS BANNER — valeurs et labels                           */
+/* ═══════════════════════════════════════════════════════════ */
+
+.stats-banner .grid-3 { gap: 1rem; }
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    color: #242423;
+}
+
+.stat-label {
+    color: #333533;
+    font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* RESSOURCES                                                 */
+/* ═══════════════════════════════════════════════════════════ */
+
+.resources-section { padding: 4rem 0; }
+.resources-container { text-align: center; }
+.resources-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* VESPA VELUTINA SECTION                                     */
+/* ═══════════════════════════════════════════════════════════ */
+
+.vespa-grid { align-items: center; }
+.vespa-desc { color: var(--text-secondary); margin-bottom: 2rem; }
+.vespa-img {
+    max-width: 100%;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px var(--shadow-accent);
+    border: 2px solid var(--accent);
+    object-fit: cover;
+    display: block;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* DASHBOARD FEATURES                                         */
+/* ═══════════════════════════════════════════════════════════ */
+
+.dashboard-features { align-items: start; gap: 3rem; }
+
+/* ═══════════════════════════════════════════════════════════ */
+/* FOOTER SUPERVISOR                                          */
+/* ═══════════════════════════════════════════════════════════ */
+
+.footer-supervisor {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
 
 /* ═══════════════════════════════════════════════════════════ */

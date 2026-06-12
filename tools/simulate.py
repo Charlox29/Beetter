@@ -58,7 +58,11 @@ def _mfcc(phase, base_c1, noise_scale=1.0):
     return [round(c1, 3), round(c2, 3), round(c3, 3), round(c4, 3), round(c5, 3)]
 
 
-def simulate_reading(beehive_id: int, when: datetime, include_mfcc: bool = True) -> dict:
+def simulate_reading(beehive_id: int, when: datetime,
+                     include_mfcc: bool = True,
+                     overrides: dict = None,
+                     light_mode: str = "auto",
+                     point_idx: int = 0) -> dict:
     """Generate a realistic reading with sinusoidal drift + noise."""
     hour  = when.hour + when.minute / 60
     phase = 2 * math.pi * hour / 24
@@ -73,8 +77,19 @@ def simulate_reading(beehive_id: int, when: datetime, include_mfcc: bool = True)
     sf_ext = 120.0 + 30.0 * math.sin(phase) + random.gauss(0, 10)
     sa_ext = 0.10  + 0.05 * math.sin(phase) + random.gauss(0, 0.02)
 
-    light = max(0.0, min(100.0,
-        LIGHT_DAY_MAX * math.sin(math.pi * hour / 24) + random.gauss(0, 2)))
+    if light_mode == "day":
+        light = 85.0 + random.gauss(0, 2)
+    elif light_mode == "night":
+        light = 2.0 + random.gauss(0, 0.5)
+    elif light_mode == "spike":
+        # Alternate: 10 points high (95%), 10 points low (2%)
+        light = 95.0 if (point_idx // 10) % 2 == 0 else 2.0
+        light += random.gauss(0, 1)
+    else:
+        light = max(0.0, min(100.0,
+            LIGHT_DAY_MAX * math.sin(math.pi * hour / 24) + random.gauss(0, 2)))
+
+    light = max(0.0, min(100.0, round(light, 1)))
 
     payload = {
         "beehive_id":      beehive_id,
@@ -86,7 +101,7 @@ def simulate_reading(beehive_id: int, when: datetime, include_mfcc: bool = True)
         "sound_amp_int":   round(max(0, min(1, sa_int)), 3),
         "sound_freq_ext":  round(max(0, sf_ext), 2),
         "sound_amp_ext":   round(max(0, min(1, sa_ext)), 3),
-        "light_ext":       round(light, 1),
+        "light_ext":       light,
         "timestamp":       when.strftime("%Y-%m-%dT%H:%M:%SZ"),
     }
 
@@ -95,6 +110,11 @@ def simulate_reading(beehive_id: int, when: datetime, include_mfcc: bool = True)
         # Outside is quieter             → lower base energy  (C1 ≈ -25)
         payload["mfcc_int"] = _mfcc(phase, base_c1=-20.0)
         payload["mfcc_ext"] = _mfcc(phase, base_c1=-25.0, noise_scale=0.7)
+
+    if overrides:
+        for key, val in overrides.items():
+            if key in payload:
+                payload[key] = val
 
     return payload
 
@@ -117,18 +137,20 @@ def send(url: str, payload: dict) -> bool:
         return False
 
 
-def run_live(url, ids, interval, include_mfcc):
-    print(f"Live data → {url}  every {interval}s  MFCC={'yes' if include_mfcc else 'no'}  Ctrl+C to stop\n")
+def run_live(url, ids, interval, include_mfcc, overrides=None, light_mode="auto"):
+    print(f"Live data → {url}  every {interval}s  MFCC={'yes' if include_mfcc else 'no'}  light={light_mode}  Ctrl+C to stop\n")
+    counter = 0
     while True:
         now = datetime.now(timezone.utc)
         for bid in ids:
-            send(url, simulate_reading(bid, now, include_mfcc))
+            send(url, simulate_reading(bid, now, include_mfcc, overrides, light_mode, point_idx=counter))
+        counter += 1
         time.sleep(interval)
 
 
-def run_burst(url, ids, points, include_mfcc):
+def run_burst(url, ids, points, include_mfcc, overrides=None, light_mode="auto"):
     """Inject `points` historical readings spread over the last 24 h."""
-    print(f"Injecting {points} historical points per beehive → {url}  MFCC={'yes' if include_mfcc else 'no'}\n")
+    print(f"Injecting {points} historical points per beehive → {url}  MFCC={'yes' if include_mfcc else 'no'}  light={light_mode}\n")
     step  = timedelta(hours=24) / points
     start = datetime.now(timezone.utc) - timedelta(hours=24)
 
@@ -137,7 +159,7 @@ def run_burst(url, ids, points, include_mfcc):
         ok = 0
         for i in range(points):
             when = start + step * i
-            if send(url, simulate_reading(bid, when, include_mfcc)):
+            if send(url, simulate_reading(bid, when, include_mfcc, overrides, light_mode, point_idx=i)):
                 ok += 1
         print(f"  → {ok}/{points} points written\n")
 
@@ -150,13 +172,45 @@ def main():
     p.add_argument("--burst",    type=int, default=0, metavar="N")
     p.add_argument("--no-mfcc",  action="store_true",
                    help="Omit MFCC fields (simulates pre-firmware packets)")
+    # Fixed value overrides — if provided, bypass simulation formula
+    p.add_argument("--temp-int",   type=float, default=None, metavar="°C",  help="Fix temperature_int")
+    p.add_argument("--temp-ext",   type=float, default=None, metavar="°C",  help="Fix temperature_ext")
+    p.add_argument("--hum-int",    type=float, default=None, metavar="%",   help="Fix humidity_int")
+    p.add_argument("--hum-ext",    type=float, default=None, metavar="%",   help="Fix humidity_ext")
+    p.add_argument("--freq-int",   type=float, default=None, metavar="Hz",  help="Fix sound_freq_int")
+    p.add_argument("--amp-int",    type=float, default=None, metavar="0-1", help="Fix sound_amp_int")
+    p.add_argument("--freq-ext",   type=float, default=None, metavar="Hz",  help="Fix sound_freq_ext")
+    p.add_argument("--amp-ext",    type=float, default=None, metavar="0-1", help="Fix sound_amp_ext")
+    p.add_argument("--light",      type=float, default=None, metavar="%",   help="Fix light_ext")
+    p.add_argument("--light-mode",
+                   choices=["auto", "day", "night", "spike"],
+                   default="auto",
+                   help=(
+                       "auto  = sinusoidal daily cycle (default)\n"
+                       "day   = constant high light (~85%%)\n"
+                       "night = constant low light (~2%%)\n"
+                       "spike = oscillates between 0 and 95%% every 10 points "
+                       "(tests threshold breach + recovery)"
+                   ))
     args = p.parse_args()
 
     include_mfcc = not args.no_mfcc
+    overrides = {k: v for k, v in {
+        "temperature_int": args.temp_int,
+        "temperature_ext": args.temp_ext,
+        "humidity_int":    args.hum_int,
+        "humidity_ext":    args.hum_ext,
+        "sound_freq_int":  args.freq_int,
+        "sound_amp_int":   args.amp_int,
+        "sound_freq_ext":  args.freq_ext,
+        "sound_amp_ext":   args.amp_ext,
+        "light_ext":       args.light,
+    }.items() if v is not None}
+
     if args.burst > 0:
-        run_burst(args.url, args.ids, args.burst, include_mfcc)
+        run_burst(args.url, args.ids, args.burst, include_mfcc, overrides, args.light_mode)
     else:
-        run_live(args.url, args.ids, args.interval, include_mfcc)
+        run_live(args.url, args.ids, args.interval, include_mfcc, overrides, args.light_mode)
 
 
 if __name__ == "__main__":

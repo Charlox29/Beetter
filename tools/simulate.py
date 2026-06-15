@@ -39,7 +39,7 @@ TEMP_BASE = 35.0;  TEMP_AMP = 2.0
 HUM_BASE  = 60.0;  HUM_AMP  = 8.0
 SOUND_FREQ_BASE = 230.0;  SOUND_FREQ_AMP = 40.0
 SOUND_AMP_BASE  = 0.35;   SOUND_AMP_AMP  = 0.15
-LIGHT_DAY_MAX   = 100.0
+LIGHT_DAY_MAX   = 3.0
 
 
 def _mfcc(phase, base_c1, noise_scale=1.0):

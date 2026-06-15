@@ -364,6 +364,61 @@ WantedBy=multi-user.target
 sudo systemctl enable --now beetter-lora
 ```
 
+### Mode kiosk au démarrage  — Raspberry Pi (optionnel)
+
+Pour que le Raspberry Pi ouvre automatiquement le dashboard en plein écran au démarrage (mode kiosk), sans intervention manuelle.
+
+**1. Créer le script de lancement** `~/beetter-stack/start-dashboard.sh` :
+
+```bash
+#!/bin/bash
+
+# Attend que le serveur Flask soit prêt
+until curl -s -o /dev/null http://localhost:5000; do
+    sleep 1
+done
+
+firefox --kiosk http://localhost:5000
+```
+
+```bash
+chmod +x ~/beetter-stack/start-dashboard.sh
+```
+
+**2. Créer l'entrée d'autostart** `~/.config/autostart/beetter-dashboard.desktop` :
+
+```ini
+[Desktop Entry]
+Type=Application
+Name=Beetter Dashboard
+Exec=/home/<user>/beetter-stack/start-dashboard.sh
+X-GNOME-Autostart-enabled=true
+```
+
+> Remplace `<user>` par le nom d'utilisateur du Raspberry Pi.
+
+**3. Activer l'autologin** (sinon l'autostart ne se déclenche pas) :
+
+```bash
+sudo raspi-config
+# System Options → Boot / Auto Login → Desktop Autologin
+```
+
+#### Sortir du mode kiosk
+
+| Action | Raccourci |
+| --- | --- |
+| Fermer Firefox | `Alt+F4` |
+| Quitter Firefox | `Ctrl+Q` |
+| Basculer sur un terminal (TTY) | `Ctrl+Alt+F2` |
+| Revenir à l'interface graphique | `Ctrl+Alt+F1` |
+
+Pour désactiver temporairement le lancement automatique :
+
+```bash
+mv ~/.config/autostart/beetter-dashboard.desktop ~/.config/autostart/beetter-dashboard.desktop.disabled
+```
+
 ---
 
 ### Serveur distant

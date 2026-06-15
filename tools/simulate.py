@@ -39,14 +39,10 @@ TEMP_BASE = 35.0;  TEMP_AMP = 2.0
 HUM_BASE  = 60.0;  HUM_AMP  = 8.0
 SOUND_FREQ_BASE = 230.0;  SOUND_FREQ_AMP = 40.0
 SOUND_AMP_BASE  = 0.35;   SOUND_AMP_AMP  = 0.15
-<<<<<<< Updated upstream
 LIGHT_DAY_MAX   = 3.0
 
 
-def _mfcc(phase, base_c1, noise_scale=1.0):
-=======
 def _mfcc(phase, base_c0, noise_scale=1.0):
->>>>>>> Stashed changes
     """
     Generate a plausible 13-MFCC vector (indices 0–12) for one sensor channel.
 

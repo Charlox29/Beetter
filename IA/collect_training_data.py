@@ -10,8 +10,8 @@ so you can pre-train on early data while MFCC firmware isn't deployed yet.
 
 Column order (matches what BeehiveDataset._parse_dataframe() expects):
   timestamp,
-  t_in_C, h_in_pct, rms_in, dom_freq_in_hz, mfcc_in_1..5,
-  t_ext_C, h_out_pct, rms_out, dom_freq_out_hz, mfcc_out_1..5,
+  t_in_C, h_in_pct, rms_in, dom_freq_in_hz, mfcc_in_0..12,
+  t_out_C, h_out_pct, rms_out, dom_freq_out_hz, mfcc_out_0..12,
   anomaly_flag   (always 0 — computed on-device by ESP32, not stored in InfluxDB)
 
 After export:
@@ -46,17 +46,14 @@ INFLUX_ORG    = os.environ['INFLUXDB_ORG']
 INFLUX_BUCKET = os.environ['INFLUXDB_BUCKET']
 
 # ── Column spec — exactly what BeehiveDataset._parse_dataframe() reads ────────
-COLUMNS = [
-    'timestamp',
-    # inside sensor
-    't_in_C', 'h_in_pct', 'rms_in', 'dom_freq_in_hz',
-    'mfcc_in_1', 'mfcc_in_2', 'mfcc_in_3', 'mfcc_in_4', 'mfcc_in_5',
-    # outside sensor
-    't_out_C', 'h_out_pct', 'rms_out', 'dom_freq_out_hz',
-    'mfcc_out_1', 'mfcc_out_2', 'mfcc_out_3', 'mfcc_out_4', 'mfcc_out_5',
-    # anomaly flag (from ESP32 bitmask — not yet stored in InfluxDB, always 0)
-    'anomaly_flag',
-]
+COLUMNS = (
+    ['timestamp']
+    + ['t_in_C', 'h_in_pct', 'rms_in', 'dom_freq_in_hz']
+    + [f'mfcc_in_{i}' for i in range(13)]
+    + ['t_out_C', 'h_out_pct', 'rms_out', 'dom_freq_out_hz']
+    + [f'mfcc_out_{i}' for i in range(13)]
+    + ['anomaly_flag']
+)
 
 # InfluxDB measurement names → CSV column names
 _INT_MAP = {
@@ -64,22 +61,14 @@ _INT_MAP = {
     'humidity_int':    'h_in_pct',
     'sound_amp_int':   'rms_in',        # amplitude ≈ RMS proxy
     'sound_freq_int':  'dom_freq_in_hz',
-    'mfcc_int_1':      'mfcc_in_1',
-    'mfcc_int_2':      'mfcc_in_2',
-    'mfcc_int_3':      'mfcc_in_3',
-    'mfcc_int_4':      'mfcc_in_4',
-    'mfcc_int_5':      'mfcc_in_5',
+    **{f'mfcc_int_{i}': f'mfcc_in_{i}' for i in range(13)},
 }
 _EXT_MAP = {
     'temperature_ext': 't_out_C',
     'humidity_ext':    'h_out_pct',
     'sound_amp_ext':   'rms_out',
     'sound_freq_ext':  'dom_freq_out_hz',
-    'mfcc_ext_1':      'mfcc_out_1',
-    'mfcc_ext_2':      'mfcc_out_2',
-    'mfcc_ext_3':      'mfcc_out_3',
-    'mfcc_ext_4':      'mfcc_out_4',
-    'mfcc_ext_5':      'mfcc_out_5',
+    **{f'mfcc_ext_{i}': f'mfcc_out_{i}' for i in range(13)},
 }
 _ALL_INFLUX = list(_INT_MAP) + list(_EXT_MAP)
 _MFCC_CSV_COLS = [c for c in COLUMNS if 'mfcc' in c]
@@ -182,7 +171,7 @@ def main():
         w.writerows(rows)
     print(f"Saved → {args.out}")
 
-    mfcc_present = sum(1 for r in rows if r.get('mfcc_in_1', 0) != 0)
+    mfcc_present = sum(1 for r in rows if r.get('mfcc_in_0', 0) != 0)
     print(f"  Rows with real MFCC: {mfcc_present}/{len(rows)}")
 
     if len(rows) < 500:

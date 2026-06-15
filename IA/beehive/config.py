@@ -29,7 +29,7 @@ class ModelConfig:
     """
     Encoder + projection head dimensions.
 
-    The hierarchy is: raw sensor (9-d) → encoder backbone (32-d) → projection (16-d).
+    The hierarchy is: raw sensor (17-d) → encoder backbone (32-d) → projection (16-d).
     ─ backbone (32-d): used at inference time, fed to the classifier
     ─ projection (16-d): used only during contrastive training, discarded afterwards
 
@@ -39,7 +39,7 @@ class ModelConfig:
     the downstream classifier finds useful (e.g., loud vs quiet hive).
     The projection head absorbs all the sphere-compression, leaving the backbone free.
     """
-    input_dim:  int = 9    # T°, H%, log(RMS), dom_freq, MFCC 1-5
+    input_dim:  int = 17   # T°, H%, dom_freq, log(RMS), MFCC 0-12
     hidden_dim: int = 64   # first linear layer
     embed_dim:  int = 32   # backbone output — used at inference
     proj_dim:   int = 16   # projection output — used during training only
@@ -106,6 +106,13 @@ class LoRaPacketConfig:
     struct_fmt: str = "<HbbBBbbBBhhhhhhhhhhB"
     size_bytes: int = 31
 
+
+# ── Feature names (17-d vector per sensor, matches ModelConfig.input_dim) ─────
+FEATURE_NAMES: List[str] = [
+    "temperature", "humidity", "dom_freq", "log_rms",
+    "mfcc_0", "mfcc_1", "mfcc_2", "mfcc_3", "mfcc_4", "mfcc_5", "mfcc_6",
+    "mfcc_7", "mfcc_8", "mfcc_9", "mfcc_10", "mfcc_11", "mfcc_12",
+]
 
 # ── Convenience singletons (import these everywhere instead of instantiating) ─
 MODEL_CFG     = ModelConfig()

@@ -39,23 +39,35 @@ TEMP_BASE = 35.0;  TEMP_AMP = 2.0
 HUM_BASE  = 60.0;  HUM_AMP  = 8.0
 SOUND_FREQ_BASE = 230.0;  SOUND_FREQ_AMP = 40.0
 SOUND_AMP_BASE  = 0.35;   SOUND_AMP_AMP  = 0.15
+<<<<<<< Updated upstream
 LIGHT_DAY_MAX   = 3.0
 
 
 def _mfcc(phase, base_c1, noise_scale=1.0):
+=======
+def _mfcc(phase, base_c0, noise_scale=1.0):
+>>>>>>> Stashed changes
     """
-    Generate a plausible 5-MFCC vector for one sensor channel.
+    Generate a plausible 13-MFCC vector (indices 0–12) for one sensor channel.
 
-    base_c1 is the nominal C1 for this sensor/state (inside is typically
-    louder → higher C1 than outside).  The daily cycle adds a small modulation;
-    Gaussian noise models sensor variance.
+    base_c0 is the nominal C0 (energy) for this sensor/state — inside is typically
+    louder (base_c0 ≈ -35) than outside (base_c0 ≈ -42).  Coefficients 6–12 follow
+    the same sinusoidal pattern as 2–5 with decreasing amplitude.
     """
-    c1 = base_c1  + 3.0 * math.sin(phase)       + random.gauss(0, 1.0 * noise_scale)
-    c2 =  2.0      + 2.5 * math.sin(phase + 0.5) + random.gauss(0, 0.8 * noise_scale)
-    c3 = -1.0      + 1.0 * math.sin(phase + 1.0) + random.gauss(0, 0.5 * noise_scale)
-    c4 =  0.5      + 0.8 * math.cos(phase)        + random.gauss(0, 0.4 * noise_scale)
-    c5 = -0.3      + 0.5 * math.cos(phase + 0.5) + random.gauss(0, 0.3 * noise_scale)
-    return [round(c1, 3), round(c2, 3), round(c3, 3), round(c4, 3), round(c5, 3)]
+    c0  = base_c0 + 8.0 * math.sin(phase)        + random.gauss(0, 2.0 * noise_scale)
+    c1  =  2.0    + 2.5 * math.sin(phase + 0.5)  + random.gauss(0, 0.8 * noise_scale)
+    c2  = -1.0    + 1.0 * math.sin(phase + 1.0)  + random.gauss(0, 0.5 * noise_scale)
+    c3  =  0.5    + 0.8 * math.cos(phase)         + random.gauss(0, 0.4 * noise_scale)
+    c4  = -0.3    + 0.5 * math.cos(phase + 0.5)  + random.gauss(0, 0.3 * noise_scale)
+    c5  =  0.8    + 0.7 * math.sin(phase + 0.3)  + random.gauss(0, 0.35 * noise_scale)
+    c6  = -0.5    + 0.6 * math.sin(phase + 0.7)  + random.gauss(0, 0.3 * noise_scale)
+    c7  =  0.4    + 0.5 * math.cos(phase + 0.2)  + random.gauss(0, 0.25 * noise_scale)
+    c8  = -0.2    + 0.4 * math.cos(phase + 0.8)  + random.gauss(0, 0.2 * noise_scale)
+    c9  =  0.3    + 0.3 * math.sin(phase + 1.2)  + random.gauss(0, 0.2 * noise_scale)
+    c10 = -0.1    + 0.3 * math.sin(phase + 0.6)  + random.gauss(0, 0.15 * noise_scale)
+    c11 =  0.2    + 0.2 * math.cos(phase + 1.0)  + random.gauss(0, 0.15 * noise_scale)
+    c12 = -0.1    + 0.2 * math.cos(phase + 0.4)  + random.gauss(0, 0.1 * noise_scale)
+    return [round(x, 3) for x in [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12]]
 
 
 def simulate_reading(beehive_id: int, when: datetime,
@@ -78,18 +90,17 @@ def simulate_reading(beehive_id: int, when: datetime,
     sa_ext = 0.10  + 0.05 * math.sin(phase) + random.gauss(0, 0.02)
 
     if light_mode == "day":
-        light = 85.0 + random.gauss(0, 2)
+        light = 8.5 + random.gauss(0, 0.2)
     elif light_mode == "night":
-        light = 2.0 + random.gauss(0, 0.5)
+        light = 0.2 + random.gauss(0, 0.05)
     elif light_mode == "spike":
-        # Alternate: 10 points high (95%), 10 points low (2%)
-        light = 95.0 if (point_idx // 10) % 2 == 0 else 2.0
-        light += random.gauss(0, 1)
+        # Alternate: 10 points high (~9.5), 10 points low (~0.2)
+        light = 9.5 if (point_idx // 10) % 2 == 0 else 0.2
+        light += random.gauss(0, 0.1)
     else:
-        light = max(0.0, min(100.0,
-            LIGHT_DAY_MAX * math.sin(math.pi * hour / 24) + random.gauss(0, 2)))
+        light = max(0.0, min(10.0, 10.0 * math.sin(math.pi * hour / 24) + random.gauss(0, 0.3)))
 
-    light = max(0.0, min(100.0, round(light, 1)))
+    light = max(0.0, min(10.0, round(light, 1)))
 
     payload = {
         "beehive_id":      beehive_id,
@@ -106,10 +117,10 @@ def simulate_reading(beehive_id: int, when: datetime,
     }
 
     if include_mfcc:
-        # Inside is noisier (bees, brood) → higher base energy (C1 ≈ -20)
-        # Outside is quieter             → lower base energy  (C1 ≈ -25)
-        payload["mfcc_int"] = _mfcc(phase, base_c1=-20.0)
-        payload["mfcc_ext"] = _mfcc(phase, base_c1=-25.0, noise_scale=0.7)
+        # Inside is noisier (bees, brood) → higher base energy (C0 ≈ -35)
+        # Outside is quieter             → lower base energy  (C0 ≈ -42)
+        payload["mfcc_int"] = _mfcc(phase, base_c0=-35.0)
+        payload["mfcc_ext"] = _mfcc(phase, base_c0=-42.0, noise_scale=0.7)
 
     if overrides:
         for key, val in overrides.items():

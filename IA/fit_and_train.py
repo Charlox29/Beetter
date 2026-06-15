@@ -69,7 +69,7 @@ def run_pretrain(args):
         'h_in_pct':       '% inside H',
         'dom_freq_in_hz': 'Hz inside freq',
         'rms_in':         'RMS inside (pre-log)',
-        'mfcc_in_1':      'MFCC-1 inside',
+        'mfcc_in_0':      'MFCC-0 inside',
     }
     for col, label in check_cols.items():
         if col in df.columns:
@@ -77,7 +77,7 @@ def run_pretrain(args):
             log.info("  %-18s  mean=%7.2f  std=%6.2f  [%7.2f … %7.2f]",
                      label, s.mean(), s.std(), s.min(), s.max())
 
-    mfcc_present = (df['mfcc_in_1'] != 0).mean()
+    mfcc_present = (df['mfcc_in_0'] != 0).mean()
     if mfcc_present < 0.01:
         log.warning("MFCC columns are all zero — using --allow-partial simulated data.")
         log.warning("The model will pre-train on 4 features; MFCC slots will learn later.")
@@ -86,7 +86,7 @@ def run_pretrain(args):
 
     # ── 3. Fit normalizers ───────────────────────────────────────────────────
     log.info("Fitting z-score normalizers on %d samples…", len(df))
-    raw_in, raw_out = _build_raw_arrays(df)    # (N, 9) each, un-normalised
+    raw_in, raw_out = _build_raw_arrays(df)    # (N, 17) each, un-normalised
 
     norm_in  = FeatureNormalizer().fit(raw_in)
     norm_out = FeatureNormalizer().fit(raw_out)

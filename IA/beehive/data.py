@@ -159,10 +159,11 @@ class FeatureNormalizer:
     recalibration decision at the start of each season.
     """
 
-    N_FEATURES = 9
+    N_FEATURES = 17
     FEATURE_NAMES = [
-        "temperature", "humidity", "log_rms", "dom_freq",
-        "mfcc_1", "mfcc_2", "mfcc_3", "mfcc_4", "mfcc_5",
+        "temperature", "humidity", "dom_freq", "log_rms",
+        "mfcc_0", "mfcc_1", "mfcc_2", "mfcc_3", "mfcc_4", "mfcc_5", "mfcc_6",
+        "mfcc_7", "mfcc_8", "mfcc_9", "mfcc_10", "mfcc_11", "mfcc_12",
     ]
 
     def __init__(self) -> None:
@@ -244,8 +245,8 @@ def _build_raw_arrays(df) -> Tuple[np.ndarray, np.ndarray]:
     Internal helper: build raw (un-normalised) feature matrices from a DataFrame.
     Returns (raw_in, raw_out), each shape (N, 9).
     """
-    mfcc_in_cols  = [f"mfcc_in_{i}"  for i in range(1, 6)]
-    mfcc_out_cols = [f"mfcc_out_{i}" for i in range(1, 6)]
+    mfcc_in_cols  = [f"mfcc_in_{i}"  for i in range(0, 13)]
+    mfcc_out_cols = [f"mfcc_out_{i}" for i in range(0, 13)]
 
     rms_in  = np.log(np.maximum(df["rms_in"].values,  1e-12))
     rms_out = np.log(np.maximum(df["rms_out"].values, 1e-12))
@@ -253,16 +254,16 @@ def _build_raw_arrays(df) -> Tuple[np.ndarray, np.ndarray]:
     raw_in = np.column_stack([
         df["t_in_C"].values,
         df["h_in_pct"].values,
-        rms_in,
         df["dom_freq_in_hz"].values,
+        rms_in,
         df[mfcc_in_cols].values,
     ]).astype(np.float32)
 
     raw_out = np.column_stack([
         df["t_out_C"].values,
         df["h_out_pct"].values,
-        rms_out,
         df["dom_freq_out_hz"].values,
+        rms_out,
         df[mfcc_out_cols].values,
     ]).astype(np.float32)
 
@@ -280,8 +281,8 @@ class BeehiveDataset(Dataset):
         t_in_C, t_out_C, h_in_pct, h_out_pct,
         rms_in, rms_out,
         dom_freq_in_hz, dom_freq_out_hz,
-        mfcc_in_1 … mfcc_in_5,
-        mfcc_out_1 … mfcc_out_5,
+        mfcc_in_0 … mfcc_in_12,
+        mfcc_out_0 … mfcc_out_12,
         anomaly_flag   (optional, not used during training)
 
     Normalisation is applied on-the-fly in __getitem__ so the normalizer

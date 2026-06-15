@@ -34,7 +34,7 @@ nb_blocs=min(blocs_ruche.shape[1],blocs_frelon.shape[1])
 
 for i in range(nb_blocs):
     morceau = blocs_ruche[:, i]
-    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     
     # L'astuce : on fait la moyenne sur l'axe du temps (axis=1)
     mfcc_moyen = np.mean(mfcc, axis=1) 
@@ -49,7 +49,7 @@ for i in range(nb_blocs):
     volume_f = random.uniform(0.3, 1.5)
     volume_r = 0.5 
     mixage = (morceau_ruche * volume_r) + (morceau_frelon * volume_f)
-    mfcc = librosa.feature.mfcc(y=mixage, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=mixage, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     mfcc_moyen = np.mean(mfcc, axis=1)
     X.append(mfcc_moyen)
     Y.append(1)
@@ -93,7 +93,7 @@ nb_blocs=min(blocs_ruche.shape[1],blocs_essaimage.shape[1])
 
 for i in range(nb_blocs):
     morceau = blocs_essaimage[:, i]
-    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     
     # L'astuce : on fait la moyenne sur l'axe du temps (axis=1)
     mfcc_moyen = np.mean(mfcc, axis=1) 
@@ -102,7 +102,7 @@ for i in range(nb_blocs):
 
 for i in range(nb_blocs):
     morceau = blocs_ruche[:, i]
-    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     mfcc_moyen = np.mean(mfcc, axis=1) 
     A.append(mfcc_moyen)
     B.append(0) # 0 = "Ce n'est pas un frelon"
@@ -162,7 +162,7 @@ nb_blocs=min(blocs_ruche_int.shape[1],blocs_chant.shape[1])
 
 for i in range(nb_blocs):
     morceau = blocs_ruche_int[:, i]
-    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     mfcc_moyen = np.mean(mfcc, axis=1) 
     C.append(mfcc_moyen)
     D.append(0) # 0 = "Ce n'est pas un frelon"
@@ -174,7 +174,7 @@ for i in range(nb_blocs):
     volume_f = random.uniform(0.3, 1.5)
     volume_r = 0.5 
     mixage = (morceau_ruche_int * volume_r) + (morceau_chant * volume_f)
-    mfcc = librosa.feature.mfcc(y=mixage, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=mixage, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     mfcc_moyen = np.mean(mfcc, axis=1)
     C.append(mfcc_moyen)
     D.append(1)

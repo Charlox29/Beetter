@@ -10,7 +10,7 @@ import random
 
 def extraire_mfcc(audio, sr):
     """Calcule les 13 MFCC et fait la moyenne instantanément"""
-    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, fmin=50, fmax=3000)
+    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
     return np.mean(mfcc, axis=1)
 
 def ajouter_bruit(audio, niveau=0.005):

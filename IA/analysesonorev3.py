@@ -3,304 +3,193 @@ import librosa
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import random
-import tensorflow as tf
-from keras import layers
-from keras import models
-from keras import optimizers
-from keras.applications import MobileNet
-from tensorflow.keras.applications.mobilenet import preprocess_input
 
-ruche, sr = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/bruit_ruche.wav", sr=22050)
-frelon1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/son_frelon_long_mais_moins_propre.wav", sr=22050)
-frelon2, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon.wav", sr=22050)
+# ==========================================
+# 🛠️ FONCTIONS UTILITAIRES (Pour un code propre)
+# ==========================================
 
-# X contiendra nos empreintes (les 13 nombres)
-# y contiendra les réponses (0 = Ruche, 1 = Frelon)
-X = [] 
-Y = [] 
+def extraire_mfcc(audio, sr):
+    """Calcule les 13 MFCC et fait la moyenne instantanément"""
+    mfcc = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13, fmin=50, fmax=2000)
+    return np.mean(mfcc, axis=1)
 
-taille_fenetre = 3 * sr  # Fenêtre de 3 secondes
-saut = 2 * sr            # On avance de 1 seconde à la fois
+def ajouter_bruit(audio, niveau=0.005):
+    """Ajoute un léger bruit blanc aléatoire (type vent)"""
+    bruit = np.random.randn(len(audio)) * niveau
+    return audio + bruit
 
-frelon = np.concatenate((frelon1, frelon2))
+# ==========================================
+# 🐝 PARTIE 1 : DÉTECTION DES FRELONS
+# ==========================================
+print("\n--- Entraînement du Modèle Frelon ---")
 
-# Découpage mathématique instantané
+ruche, sr = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/ruche_exterieur.wav", sr=8000)
+frelon1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon1.wav", sr=8000)
+frelon2, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon2.wav", sr=8000)
+frelon3, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon3.wav", sr=8000)
+frelon4, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon4.wav", sr=8000)
+
+frelon = np.concatenate((frelon1, frelon2, frelon3, frelon4))
+
+taille_fenetre = 3 * sr  # 3 secondes
+saut = 3 * sr            # Pas de chevauchement !
+
 blocs_ruche = librosa.util.frame(ruche, frame_length=taille_fenetre, hop_length=saut)
 blocs_frelon = librosa.util.frame(frelon, frame_length=taille_fenetre, hop_length=saut)
 
-for i in range(blocs_ruche.shape[1]):
-    morceau = blocs_ruche[:, i]
-    mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13)
-    
-    # L'astuce : on fait la moyenne sur l'axe du temps (axis=1)
-    mfcc_moyen = np.mean(mfcc, axis=1) 
-    
-    X.append(mfcc_moyen)
-    Y.append(0) # 0 = "Ce n'est pas un frelon"
+nb_blocs = min(blocs_ruche.shape[1], blocs_frelon.shape[1])
+X, Y = [], []
 
-for i in range(blocs_frelon.shape[1]):
-    
-    # 1. On prend notre bloc pur de frelon (2 secondes)
+# 1. Traitement de la Ruche (Augmentation x2 : Original + Bruité)
+for i in range(nb_blocs):
+    morceau = blocs_ruche[:, i]
+    X.append(extraire_mfcc(morceau, sr))
+    X.append(extraire_mfcc(ajouter_bruit(morceau), sr)) # Clone bruité
+    Y.extend([0, 0])
+
+# 2. Traitement du Frelon (Augmentation x3 avec Mixage)
+for i in range(nb_blocs):
     morceau_frelon = blocs_frelon[:, i]
     
-    # 2. On choisit un bloc de ruche AU HASARD dans notre grand fichier ruche
-    # (Pour ne pas toujours avoir le même bruit de fond)
-    index_ruche_au_hasard = random.randint(0, blocs_ruche.shape[1] - 1)
-    morceau_ruche = blocs_ruche[:, index_ruche_au_hasard]
-    
-    # 3. L'ASTUCE : On tire un volume au hasard pour le frelon (entre 0.3 et 1.5)
-    # 0.3 = Frelon lointain, 1.5 = Frelon très proche du micro
-    volume_f = random.uniform(0.3, 1.5)
-    volume_r = 0.5 # On garde la ruche à un niveau moyen constant
-    
-    # 4. LE MIXAGE MATHÉMATIQUE !
-    mixage = (morceau_ruche * volume_r) + (morceau_frelon * volume_f)
-    
-    # 5. Extraction du MFCC sur le son mixé
-    mfcc = librosa.feature.mfcc(y=mixage, sr=sr, n_mfcc=13)
-    mfcc_moyen = np.mean(mfcc, axis=1)
-    
-    # 6. On ajoute au Dataset
-    X.append(mfcc_moyen)
-    Y.append(1)
+    # On crée 3 clones avec le frelon plus ou moins loin du micro
+    for clone in range(3): 
+        idx_hasard = random.randint(0, blocs_ruche.shape[1] - 1)
+        morceau_ruche = blocs_ruche[:, idx_hasard]
+        vol_f = random.uniform(0.2, 1.5)
+        
+        mixage = (morceau_ruche * 0.5) + (morceau_frelon * vol_f)
+        X.append(extraire_mfcc(mixage, sr))
+        Y.append(1)
 
-# On convertit nos listes en tableaux Numpy pour l'IA
 X = np.array(X)
 Y = np.array(Y)
 
-print(f"📊 Dataset prêt ! {len(X)} échantillons analysés (13 caractéristiques chacun).")
-
-
-# 2. ENTRAÎNEMENT DE L'IA (Le Cerveau)
-
-# On coupe nos données : 80% pour l'apprentissage, 20% pour l'examen final
+print(f"📊 Dataset Frelon : {len(X)} échantillons (Augmenté !)")
 X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2, random_state=42)
 
-# On crée une forêt de 100 arbres de décision
-modele = RandomForestClassifier(n_estimators=100, random_state=42)
-
-# La ligne où la machine APPREND :
-modele.fit(X_train, Y_train) 
-
-# 3. LE VERDICT (L'Examen)
-
-score = modele.score(X_test, Y_test)
-
-print(f"🎯 Précision de l'IA : {score * 100:.2f}%")
-
-# le but étant de passer sur une analyse spectral par consequent il nous faut travailler nos échantillons pour les etiqueter grâce àla metode précedente
-
-chemin_audio_frelon_ruche1_1 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 1 (see Table 1).wav"
-chemin_audio_frelon_ruche2_1 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 2 (see Table 1).wav"
-chemin_audio_frelon_ruche3_1 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 3 (see Table 1).wav"
-chemin_audio_frelon_ruche4_1 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 4 (see Table 1).wav"
-chemin_audio_frelon_ruche5_1 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 5 (see Table 1).wav"
-chemin_audio_frelon_ruche1_2 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 1 (see Table 2).wav"
-chemin_audio_frelon_ruche2_2 ="C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 2 (see Table 2).wav"
-
-liste_chemin=[chemin_audio_frelon_ruche1_1,chemin_audio_frelon_ruche2_1,chemin_audio_frelon_ruche3_1,chemin_audio_frelon_ruche4_1,chemin_audio_frelon_ruche5_1,chemin_audio_frelon_ruche1_2,chemin_audio_frelon_ruche2_2]
-liste_son=[]
-blocs_son=[]
-
-print("🚁 Lancement du Radar IA pour extraire les Spectrogrammes...")
-
-# A contiendra nos images (Spectrogrammes)
-# B contiendra les réponses (0 = Ruche, 1 = Frelon)
-A = [] 
-B = [] 
-
-for i in range(len(liste_chemin)):
-    print(f"Analyse de la vidéo {i+1}/{len(liste_chemin)}...")
-    
-    # CORRECTION 1 : On sépare bien l'audio de la fréquence (le petit '_')
-    audio_courant, _ = librosa.load(liste_chemin[i], sr=22050)
-    
-    # On découpe
-    blocs = librosa.util.frame(audio_courant, frame_length=taille_fenetre, hop_length=saut)
-    
-    for j in range(blocs.shape[1]):
-        morceau = blocs[:, j]
-        
-        # --- 1. L'Avis du Random Forest (MFCC) ---
-        mfcc = librosa.feature.mfcc(y=morceau, sr=sr, n_mfcc=13)
-        mfcc_moyen = np.mean(mfcc, axis=1)
-        probabilites = modele.predict_proba([mfcc_moyen])[0]
-        
-        # --- 2. La création de l'image (Spectrogramme) ---
-        spectre = librosa.amplitude_to_db(np.abs(librosa.stft(morceau)), ref=np.max)
-        
-        # --- 3. Le Tri ---
-        if probabilites[0] > 0.70: # 70% sûr que c'est une Ruche
-            A.append(spectre)
-            B.append(0)
-        elif probabilites[1] > 0.70: # 70% sûr que c'est un Frelon
-            A.append(spectre)
-            B.append(1)
-
-for v in range(1100):
-        morceau = blocs_ruche[:, v]
-        spectre = librosa.amplitude_to_db(np.abs(librosa.stft(morceau)), ref=np.max)
-        A.append(spectre)
-        B.append(0)
-
-A = np.array(A)
-B = np.array(B)
-
-print(f"✅ Extraction terminée ! {len(A)} spectrogrammes ont été générés.")
-
-c=0
-for k in range (len(B)):
-    if B[k]==0 :
-        c+=1
-
-print(f"nombre de 0 = {c},nombre de 1 = {len(B)-c}")
-
-# On prépare le jeu de données pour le futur Réseau de Neurones
-A_train, A_test, B_train, B_test = train_test_split(A, B, test_size=0.2, random_state=42)
-
+modele_f = RandomForestClassifier(n_estimators=100, random_state=42)
+modele_f.fit(X_train, Y_train) 
+print(f"🎯 Précision Frelon : {modele_f.score(X_test, Y_test) * 100:.2f}%")
 # ==========================================
-# 1. ADAPTATION DES TABLEAUX NUMPY POUR MOBILENET
+# 🌪️ PARTIE 2 : DÉTECTION DES ESSAIMAGES (CORRIGÉE)
 # ==========================================
-print("🎨 Transformation de vos tableaux NumPy en tenseurs RGB (128x128x3)...")
+print("\n--- Entraînement du Modèle Essaimage ---")
 
-def formater_matrices_pour_mobilenet(tableau_spectres):
-    """
-    Prend un tableau NumPy de spectrogrammes bruts et le transforme
-    en un bloc d'images carrées à 3 canaux compatible avec MobileNet.
-    """
-    images_formatees = []
+essaimage1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/essaimage1.wav", sr=8000)
+essaimage2, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/essaimage2.wav", sr=8000)
+essaimage = np.concatenate((essaimage1, essaimage2))
+
+taille_fenetre_e = 5 * sr  # 5 secondes
+saut_e = 5 * sr            
+
+blocs_ruche_5s = librosa.util.frame(ruche, frame_length=taille_fenetre_e, hop_length=saut_e).T
+blocs_essaimage = librosa.util.frame(essaimage, frame_length=taille_fenetre_e, hop_length=saut_e).T
+
+# 1. ON FAIT LE SPLIT AVANT TOUTE AUGMENTATION (Garantie d'honnêteté)
+r_train, r_test = train_test_split(blocs_ruche_5s, test_size=0.2, random_state=42)
+e_train, e_test = train_test_split(blocs_essaimage, test_size=0.2, random_state=42)
+
+A_train, B_train = [], []
+A_test, B_test = [], []
+
+# 2. ON FABRIQUE L'ENTRAÎNEMENT (Ici on a le droit d'augmenter/cloner !)
+for morceau in r_train:
+    A_train.append(extraire_mfcc(morceau, sr))
+    A_train.append(extraire_mfcc(ajouter_bruit(morceau), sr)) # Clone autorisé
+    B_train.extend([0, 0])
+
+for morceau in e_train:
+    A_train.append(extraire_mfcc(morceau, sr))
+    A_train.append(extraire_mfcc(ajouter_bruit(morceau, niveau=0.01), sr)) # Clone autorisé
+    B_train.extend([1, 1])
+
+# 3. ON FABRIQUE LE TEST (Aucun clone, pure réalité)
+for morceau in r_test:
+    A_test.append(extraire_mfcc(morceau, sr))
+    B_test.append(0)
+
+for morceau in e_test:
+    A_test.append(extraire_mfcc(morceau, sr))
+    B_test.append(1)
+
+A_train, B_train = np.array(A_train), np.array(B_train)
+A_test, B_test = np.array(A_test), np.array(B_test)
+
+print(f"📊 Dataset Essaimage : {len(A_train)} Train, {len(A_test)} Test")
+
+modele_e = RandomForestClassifier(n_estimators=100, random_state=42)
+modele_e.fit(A_train, B_train) 
+print(f"🎯 VRAIE Précision Essaimage : {modele_e.score(A_test, B_test) * 100:.2f}%")
+# ==========================================
+# 👑 PARTIE 3 : CHANT DE LA REINE (CORRIGÉE)
+# ==========================================
+print("\n--- Entraînement du Modèle Reine ---")
+
+# 1. Chargement des sons
+ruche_int1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/ruche_interieur1.wav", sr=8000)
+ruche_int2, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/ruche_interieur2.wav", sr=8000)
+ruche_int = np.concatenate((ruche_int1, ruche_int2))
+
+fichiers_chant = ["chant2.wav", "chant3.wav", "chant4.wav", "chant5.wav", "chant7.wav", "chant8.wav", "chant9.wav", "chant10.wav", "chant11.wav"]
+chant = np.array([])
+for f in fichiers_chant:
+    audio, _ = librosa.load(f"C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/{f}", sr=8000)
+    chant = np.concatenate((chant, audio))
+
+taille_fenetre_c = 3 * sr 
+saut_c = 3 * sr            
+
+# Astuce : Le ".T" (Transposition) à la fin permet de retourner le tableau 
+# pour que train_test_split puisse le couper correctement.
+blocs_ruche_int = librosa.util.frame(ruche_int, frame_length=taille_fenetre_c, hop_length=saut_c).T
+blocs_chant = librosa.util.frame(chant, frame_length=taille_fenetre_c, hop_length=saut_c).T
+
+# 2. ON SÉPARE AVANT D'AUGMENTER (Anti-Triche)
+r_train, r_test = train_test_split(blocs_ruche_int, test_size=0.2, random_state=42)
+c_train, c_test = train_test_split(blocs_chant, test_size=0.2, random_state=42)
+
+C_train, D_train = [], []
+C_test, D_test = [], []
+
+# 3. CRÉATION DU DOSSIER ENTRAÎNEMENT (Avec Clones et Mixages)
+# --> Ruche saine (Original + Clone bruité)
+for morceau in r_train:
+    C_train.append(extraire_mfcc(morceau, sr))
+    C_train.append(extraire_mfcc(ajouter_bruit(morceau), sr)) 
+    D_train.extend([0, 0])
+
+# --> Chant de la reine (Original + 3 mixages aléatoires)
+for morceau_c in c_train:
+    # On garde le chant pur
+    C_train.append(extraire_mfcc(morceau_c, sr))
+    D_train.append(1)
     
-    for spectre in tableau_spectres:
-        # A. Normalisation entre 0 et 255 (car amplitude_to_db donne du négatif)
-        spectre_min = spectre.min()
-        spectre_max = spectre.max()
-        if spectre_max - spectre_min > 0:
-            spectre_normalise = (spectre - spectre_min) / (spectre_max - spectre_min) * 255.0
-        else:
-            spectre_normalise = spectre * 0.0
-            
-        # B. Ajout de la dimension de canal manquante -> (Hauteur, Largeur, 1)
-        spectre_2d = spectre_normalise[..., np.newaxis]
+    # On crée 3 mixages différents pour l'entraînement
+    for clone in range(3):
+        # On choisit un bruit de fond au hasard dans le dossier d'entraînement !
+        idx_hasard = random.randint(0, len(r_train) - 1)
+        fond_ruche = r_train[idx_hasard]
+        vol_c = random.uniform(0.3, 1.5)
         
-        # C. Redimensionnement en 128x128 via TensorFlow
-        spectre_resized = tf.image.resize(spectre_2d, [128, 128])
-        
-        # D. Conversion de niveaux de gris à RGB (copie de la matrice sur 3 canaux)
-        spectre_rgb = tf.image.grayscale_to_rgb(spectre_resized)
-        
-        images_formatees.append(spectre_rgb.numpy())
-        
-    return np.array(images_formatees)
+        mixage = (fond_ruche * 0.5) + (morceau_c * vol_c)
+        C_train.append(extraire_mfcc(mixage, sr))
+        D_train.append(1)
 
-# On applique la transformation sur vos données de mémoire vive
-# (A_train et A_test proviennent de votre split précédent)
-A_train_ready = formater_matrices_pour_mobilenet(A_train)
-A_test_ready = formater_matrices_pour_mobilenet(A_test)
+# 4. CRÉATION DU DOSSIER TEST (Pure Réalité, Zéro Tricherie)
+for morceau in r_test:
+    C_test.append(extraire_mfcc(morceau, sr))
+    D_test.append(0)
 
-# On applique le prétraitement officiel de MobileNet (normalisation interne)
-A_train_ready = preprocess_input(A_train_ready)
-A_test_ready = preprocess_input(A_test_ready)
+for morceau in c_test:
+    C_test.append(extraire_mfcc(morceau, sr))
+    D_test.append(1)
 
-print(f"Forme finale pour l'entraînement : {A_train_ready.shape}") # Doit afficher (Nb, 128, 128, 3)
+# 5. ENTRAÎNEMENT ET VERDICT
+C_train, D_train = np.array(C_train), np.array(D_train)
+C_test, D_test = np.array(C_test), np.array(D_test)
 
-# ==========================================
-# 2. CONFIGURATION DU RÉSEAU DE NEURONES (CNN)
-# ==========================================
+print(f"📊 Dataset Reine : {len(C_train)} Train, {len(C_test)} Test")
 
-# Base de convolution MobileNet pré-entraînée
-conv_base = MobileNet(weights='imagenet', include_top=False, input_shape=(128, 128, 3), alpha=0.5)
-conv_base.trainable = False
-
-# Assemblage du modèle
-model = models.Sequential()
-model.add(conv_base)
-model.add(layers.Flatten())
-model.add(layers.Dense(256, activation='relu'))
-model.add(layers.Dropout(0.5))
-
-model.add(layers.Dense(1, activation='sigmoid'))
-
-# !!! CORRECTION : loss='binary_crossentropy' (adapté au choix Ruche vs Frelon)
-model.compile(loss='binary_crossentropy', 
-              optimizer=optimizers.Adam(learning_rate=1e-5), 
-              metrics=['acc'])
-
-# ==========================================
-# 3. ENTRAÎNEMENT PHASE 1 (Transfer Learning)
-# ==========================================
-print("\n--- PHASE 1 : Entraînement des couches supérieures ---")
-# Remplacement des générateurs par vos variables NumPy directes !
-history_1 = model.fit(
-      A_train_ready, B_train,
-      epochs=20,
-      batch_size=32,
-      validation_data=(A_test_ready, B_test),
-      verbose=2)
-
-# ==========================================
-# 4. ENTRAÎNEMENT PHASE 2 (Fine-Tuning)
-# ==========================================
-print("\n--- PHASE 2 : Dégel partiel et Fine-Tuning de MobileNet ---")
-conv_base.trainable = True
-
-set_trainable = False
-for layer in conv_base.layers:
-    if layer.name == 'conv_dw_11':
-        set_trainable = True
-    if set_trainable:
-        layer.trainable = True
-    else:
-        layer.trainable = False
-
-# Re-compilation obligatoire après modification du gel des couches
-model.compile(loss='binary_crossentropy', 
-              optimizer=optimizers.Adam(learning_rate=1e-5), 
-              metrics=['acc'])
-
-history_2 = model.fit(
-       A_train_ready, B_train,
-       epochs=20,
-       batch_size=32,
-       validation_data=(A_test_ready, B_test),
-       verbose=1)
-
-
-test_loss, test_acc = model.evaluate(A_test_ready, B_test)
-print('\n=======================================')
-print('🎯 PRECISION FINALE SUR LE TEST SET : {:2.2f}%'.format(test_acc*100))
-print('=======================================\n')
-
-def tester_nouveau_son(chemin_fichier, modele_entraine):
-    """
-    Prend un fichier audio (idéalement de 3 secondes), le transforme en image 
-    compatible avec MobileNet, et demande l'avis de l'IA.
-    """
-    print(f"\n🎧 Analyse de l'échantillon : {chemin_fichier}...")
-    audio, sr = librosa.load(chemin_fichier, sr=22050)
-    
-    # 2. Création du Spectrogramme (Mathématiques brutes)
-    spectre = librosa.amplitude_to_db(np.abs(librosa.stft(audio)), ref=np.max)
-    
-    # 3. Formatage pour MobileNet (Le même pipeline que l'entraînement !)
-    # A. Normalisation 0-255
-    spectre_min = spectre.min()
-    spectre_max = spectre.max()
-    if spectre_max - spectre_min > 0:
-        spectre_norm = (spectre - spectre_min) / (spectre_max - spectre_min) * 255.0
-    else:
-        spectre_norm = spectre * 0.0
-        
-    # B. Ajout du canal et redimensionnement
-    spectre_2d = spectre_norm[..., np.newaxis]
-    spectre_resized = tf.image.resize(spectre_2d, [128, 128])
-    spectre_rgb = tf.image.grayscale_to_rgb(spectre_resized)
-    
-    image_finale = np.expand_dims(spectre_rgb.numpy(), axis=0)
-    
-    # D. Prétraitement MobileNet (Normalisation entre -1 et 1)
-    image_finale = preprocess_input(image_finale)
-    prediction = modele_entraine.predict(image_finale)[0][0]
-    if prediction >= 0.5:
-        print(f"   Confiance que c'est un frelon : {prediction * 100:.1f}%")
-    else:
-        print(f"   Confiance que c'est une ruche : {(1 - prediction) * 100:.1f}%")
+modele_c = RandomForestClassifier(n_estimators=100, random_state=42)
+modele_c.fit(C_train, D_train) 
+print(f"🎯 VRAIE Précision Reine : {modele_c.score(C_test, D_test) * 100:.2f}%")

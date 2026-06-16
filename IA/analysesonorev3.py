@@ -3,6 +3,12 @@ import librosa
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 import random
+import time
+import joblib
+import numpy as np
+from influxdb_client import InfluxDBClient
+from app.blueprints.utils.influxdb import write_ia_prediction
+import os
 
 # ==========================================
 # 🛠️ FONCTIONS UTILITAIRES (Pour un code propre)
@@ -193,3 +199,74 @@ print(f"📊 Dataset Reine : {len(C_train)} Train, {len(C_test)} Test")
 modele_c = RandomForestClassifier(n_estimators=100, random_state=42)
 modele_c.fit(C_train, D_train) 
 print(f"🎯 VRAIE Précision Reine : {modele_c.score(C_test, D_test) * 100:.2f}%")
+
+modele_e = joblib.load("modele_essaimage.pkl")
+joblib.dump(modele_f, 'models/detector_frelon.pkl')
+joblib.dump(modele_c, 'models/detector_reine.pkl')
+
+# 2. Configuration InfluxDB (Remplacez par vos vrais identifiants)
+INFLUX_URL = "http://localhost:8086"
+INFLUX_TOKEN = "my-super-secret-token"
+INFLUX_ORG = "beetter"
+INFLUX_BUCKET = "sensors"
+INFLUX_BUCKET_IA = "data_ia" 
+
+client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+query_api = client.query_api()
+
+print("🛡️ Démarrage de la surveillance 24/7...")
+
+while True:
+    try:
+        # A. La bonne requête InfluxDB ! 
+        # On attrape toutes les mesures qui commencent par "mfcc_int_"
+        query = f"""
+        from(bucket: "{INFLUX_BUCKET}")
+          |> range(start: -5m)
+          |> filter(fn: (r) => r["_measurement"] =~ /^mfcc_int_/)
+          |> pivot(rowKey:["_time"], columnKey: ["_measurement"], valueColumn: "_value")
+        """
+        
+        resultats = query_api.query_data_frame(query)
+        
+        if not resultats.empty:
+            # On prend le relevé le plus récent
+            derniere_ligne = resultats.iloc[-1]
+            beehive_id = derniere_ligne.get("beehive_id", "1")
+            
+            # On reconstitue l'empreinte de 13 cases dynamiquement
+            empreinte = np.array([
+                derniere_ligne.get(f"mfcc_int_{i}", 0.0) for i in range(13)
+            ]).reshape(1, -1)
+            
+            # B. Le verdict de l'IA (On prend la case [1] = la certitude du danger)
+            certitude_f = modele_f.predict_proba(empreinte)[0][1]
+            certitude_r = modele_c.predict_proba(empreinte)[0][1]
+            
+            # C. Logique de décision
+            etat_texte = "normal"
+            if certitude_f >= 0.75:
+                etat_texte = "attaque_frelon"
+            elif certitude_r >= 0.75:
+                etat_texte = "chant_reine"
+
+            # D. Écriture immédiate dans le Bucket IA
+            write_ia_prediction(
+                client=client,
+                org=INFLUX_ORG,
+                bucket_ia=INFLUX_BUCKET_IA,
+                beehive_id=beehive_id,
+                etat_detecte=etat_texte,
+                proba_f=certitude_f,
+                proba_r=certitude_r,
+                timestamp=derniere_ligne["_time"]
+            )
+            
+        else:
+            print("⏳ Aucune nouvelle donnée reçue de l'ESP32 dans les 5 dernières minutes.")
+
+    except Exception as e:
+        print(f"❌ Erreur lors de la vérification : {e}")
+    
+    # On endort le script pendant 5 minutes (300 secondes)
+    time.sleep(300)

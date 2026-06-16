@@ -1,88 +1,65 @@
 /**
  * =============================================================
- *  BeetterSD.h  –  Bibliothèque gestion carte micro-SD
+ *  BeetterSD.h  –  Gestion carte micro-SD (ADA4682)
  * =============================================================
- *  Matériel : Adafruit 4682 (ADA4682) – bus SPI 3.3V
- *  Fonctions :
- *   - Initialisation avec détection de carte
- *   - Écriture de lignes CSV horodatées
- *   - Listage / suppression de fichiers
- *   - Vérification de l'espace libre
+ *  Optimisation : les fichiers CSV sont ouverts une seule fois
+ *  par cycle via beginCycle()/endCycle() pour minimiser les
+ *  open/close FAT (~50ms chacun).
  * =============================================================
  */
 
 #pragma once
-
 #include <Arduino.h>
-#include <SPI.h>
 #include <SD.h>
-#include <FS.h>
+#include <SPI.h>
 
 class BeetterSD {
 public:
-    /**
-     * Initialise le bus SPI et la carte SD.
-     * @param sck   Broche SPI SCK
-     * @param miso  Broche SPI MISO
-     * @param mosi  Broche SPI MOSI
-     * @param cs    Broche Chip Select
-     * @param det   Broche de détection de carte (HIGH = carte présente)
-     * @return true si la carte est prête, false sinon
-     */
     bool begin(uint8_t sck, uint8_t miso, uint8_t mosi,
                uint8_t cs, uint8_t det);
 
-    /** @return true si la carte SD est initialisée et disponible */
-    bool isReady() const;
-
-    /**
-     * Écrit une ligne texte dans un fichier CSV (crée le fichier si besoin).
-     * Un retour chariot est ajouté automatiquement.
-     * @param chemin  Ex. "/env.csv"
-     * @param ligne   Chaîne à écrire
-     * @return true si succès
-     */
-    bool ecrireLigne(const char* chemin, const String& ligne);
-
-    /**
-     * Lit le contenu complet d'un fichier et le renvoie dans `sortie`.
-     * @param chemin  Chemin du fichier
-     * @param sortie  Référence vers la String de destination
-     * @return true si le fichier existe et a été lu
-     */
-    bool lireFichier(const char* chemin, String& sortie);
-
-    /**
-     * Supprime un fichier.
-     * @param chemin  Chemin du fichier à supprimer
-     * @return true si supprimé
-     */
-    bool supprimerFichier(const char* chemin);
-
-    /**
-     * Affiche sur Serial la liste des fichiers à la racine
-     * avec leur taille.
-     */
-    void listerRacine();
-
-    /**
-     * @return Espace total de la carte en octets (0 si non initialisée)
-     */
+    bool isReady()       const;
+    bool cartePresente();
     uint64_t espaceTotal();
-
-    /**
-     * @return Espace utilisé en octets
-     */
     uint64_t espaceUtilise();
 
     /**
-     * Vérifie l'état de la broche de détection de carte.
-     * @return true si une carte est physiquement présente
+     * Ouvre les 3 fichiers CSV en mode append.
+     * À appeler une fois en début de cycle d'écriture.
      */
-    bool cartePresente();
+    bool beginCycle();
+
+    /**
+     * Ferme les 3 fichiers ouverts par beginCycle().
+     * À appeler en fin de cycle d'écriture.
+     */
+    void endCycle();
+
+    /** Écrit une ligne dans env.csv (beginCycle() doit être appelé avant). */
+    bool ecrireEnv(const char* ligne);
+
+    /** Écrit une ligne dans mfcc_int.csv. */
+    bool ecrireMfccInt(const char* ligne);
+
+    /** Écrit une ligne dans mfcc_ext.csv. */
+    bool ecrireMfccExt(const char* ligne);
+
+    // Méthodes utilitaires conservées
+    bool lireFichier(const char* chemin, String& sortie);
+    bool supprimerFichier(const char* chemin);
+    void listerRacine();
+
+    // Pour l'init des en-têtes CSV (utilisé une seule fois)
+    bool ecrireLigne(const char* chemin, const char* ligne);
 
 private:
-    uint8_t _cs  = 0;
-    uint8_t _det = 0;
-    bool    _pret = false;
+    uint8_t  _cs  = 0;
+    uint8_t  _det = 0;
+    bool     _pret = false;
+
+    // Fichiers ouverts pendant un cycle
+    File _fEnv;
+    File _fMfccInt;
+    File _fMfccExt;
+    bool _cycleOuvert = false;
 };

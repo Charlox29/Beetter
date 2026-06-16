@@ -1,35 +1,28 @@
 /**
- * =============================================================
- *  BeetterLoRa.cpp  –  Trame binaire fixe 83 bytes
- * =============================================================
+ * BeetterLoRa.cpp – Envoi blocs ENV (0xE0) + AUD (0xA0)
  */
 
 #include "BeetterLoRa.h"
+#include "../BeetterConfig.h"
+
+// LED_RGB_PIN défini dans BeetterConfig.h (GPIO8 = WS2812)
 
 HardwareSerial          BeetterLoRa::_ss(1);
 RH_RF95<HardwareSerial> BeetterLoRa::_radio(BeetterLoRa::_ss);
 
-// ─── Initialisation ──────────────────────────────────────────
 bool BeetterLoRa::begin(uint8_t rxPin, uint8_t txPin, float frequence) {
-    _pret             = false;
-    _freq             = frequence;
-    _tsDernierEnvoi   = 0;
-    _tmsEmissionHeure = 0;
-    _tsDebutHeure     = millis();
+    _pret = false; _freq = frequence;
+    _tsDernierEnvoi = 0; _tmsEmission = 0; _tsDebutHeure = millis();
 
-    Serial.println(F("[LoRa] Initialisation du module Grove RFM95..."));
+    Serial.println(F("[LoRa] Initialisation module Grove RFM95..."));
     _ss.begin(57600, SERIAL_8N1, rxPin, txPin);
 
     if (!_radio.init()) {
-        Serial.println(F("[LoRa] Echec init. Verifier cablage RX/TX."));
+        Serial.println(F("[LoRa] Echec init."));
         return false;
     }
-
     _radio.setFrequency(frequence);
-    Serial.printf("[LoRa] Pret sur %.1f MHz – trame binaire %d bytes\n",
-                  frequence, BEETTER_FRAME_SIZE);
-    Serial.printf("[LoRa] Duty cycle 1%% – intervalle min legal : %lu ms\n",
-                  LORA_INTERVALLE_MIN_MS);
+    Serial.printf("[LoRa] Pret sur %.1f MHz\n", frequence);
     _pret = true;
     return true;
 }
@@ -37,125 +30,103 @@ bool BeetterLoRa::begin(uint8_t rxPin, uint8_t txPin, float frequence) {
 bool     BeetterLoRa::isReady()   const { return _pret; }
 int      BeetterLoRa::rssiDernier()     { return _radio.lastRssi(); }
 
-// ─── Duty cycle ──────────────────────────────────────────────
 uint32_t BeetterLoRa::tempsAvantProchainEnvoi() const {
     if (_tsDernierEnvoi == 0) return 0;
-    unsigned long ecoule = millis() - _tsDernierEnvoi;
-    if (ecoule >= LORA_INTERVALLE_MIN_MS) return 0;
-    return (uint32_t)(LORA_INTERVALLE_MIN_MS - ecoule);
+    unsigned long e = millis() - _tsDernierEnvoi;
+    return (e >= LORA_INTERVALLE_MIN_MS) ? 0 : (uint32_t)(LORA_INTERVALLE_MIN_MS - e);
 }
 
 float BeetterLoRa::dutyCycleUtilise() const {
-    unsigned long fenetreMs = min((unsigned long)(millis() - _tsDebutHeure),
-                                  3600000UL);
-    if (fenetreMs == 0) return 0.0f;
-    return (_tmsEmissionHeure * 100.0f) / fenetreMs;
+    unsigned long f = min((unsigned long)(millis() - _tsDebutHeure), 3600000UL);
+    return (f == 0) ? 0.0f : (_tmsEmission * 100.0f) / f;
 }
 
-void BeetterLoRa::_comptabiliserEmission(uint32_t dureeMs) {
+void BeetterLoRa::_comptabiliser(uint32_t dureeMs) {
     if (millis() - _tsDebutHeure >= 3600000UL) {
-        _tmsEmissionHeure = 0;
-        _tsDebutHeure     = millis();
+        _tmsEmission = 0; _tsDebutHeure = millis();
     }
-    _tmsEmissionHeure += dureeMs;
+    _tmsEmission += dureeMs;
 }
 
-// ─── CRC-16/CCITT (poly 0x1021, init 0xFFFF) ─────────────────
-uint16_t BeetterLoRa::calculerCRC16(const uint8_t* data, size_t len) {
+uint16_t BeetterLoRa::crc16(const uint8_t* data, size_t len) {
     uint16_t crc = 0xFFFF;
     for (size_t i = 0; i < len; i++) {
         crc ^= (uint16_t)data[i] << 8;
-        for (int j = 0; j < 8; j++) {
+        for (int j = 0; j < 8; j++)
             crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
-        }
     }
     return crc;
 }
 
-// ─── Envoi ───────────────────────────────────────────────────
-bool BeetterLoRa::envoyerTrame(TrameBeetter& trame) {
-    if (!_pret) return false;
-
-    // ── Vérification duty cycle ──
+bool BeetterLoRa::_envoyer(const uint8_t* buf, uint8_t len, const char* label) {
     uint32_t attente = tempsAvantProchainEnvoi();
     if (attente > 0) {
-        Serial.printf("[LoRa] DUTY CYCLE – envoi refuse. "
-                      "Attendre %lu s (DC: %.3f%%)\n",
-                      attente / 1000, dutyCycleUtilise());
+        Serial.printf("[LoRa] DC – %s refusé, attendre %lu s\n", label, attente/1000);
         return false;
     }
-
-    // ── Calcul et insertion du CRC sur les 81 premiers bytes ──
-    trame.crc16 = calculerCRC16((uint8_t*)&trame,
-                                  BEETTER_FRAME_SIZE - sizeof(uint16_t));
-
-    // ── Envoi binaire brut ──
-    Serial.printf("[LoRa] Envoi trame #%u (%d bytes)\n",
-                  trame.seq, BEETTER_FRAME_SIZE);
-
+    Serial.printf("[LoRa] %s (%d bytes)\n", label, len);
     unsigned long debut = millis();
-    bool ok = _radio.send((uint8_t*)&trame, BEETTER_FRAME_SIZE);
+
+    // ── LED bleue ON pendant l'émission ──
+    neopixelWrite(LED_RGB_PIN, 0, 0, 50);  // R=0, G=0, B=50
+
+    bool ok = _radio.send(const_cast<uint8_t*>(buf), len);
     if (ok) {
         _radio.waitPacketSent();
-        uint32_t toa = (uint32_t)(millis() - debut);
-        _comptabiliserEmission(toa);
+        _comptabiliser((uint32_t)(millis() - debut));
         _tsDernierEnvoi = millis();
-        Serial.printf("[LoRa] OK – ToA: %lu ms – DC: %.3f%%\n",
-                      toa, dutyCycleUtilise());
-    } else {
-        Serial.println(F("[LoRa] Echec envoi."));
+        Serial.printf("[LoRa] OK – DC: %.3f%%\n", dutyCycleUtilise());
     }
+
+    // ── LED bleue OFF ──
+    neopixelWrite(LED_RGB_PIN, 0, 0, 0);
 
     return ok;
 }
 
-// ─── Réception ───────────────────────────────────────────────
-bool BeetterLoRa::recevoirMessage(uint8_t* buf, uint8_t& len,
-                                   uint32_t timeoutMs) {
+bool BeetterLoRa::envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
+                                 float tempInt, float humInt,
+                                 float tempExt, float humExt,
+                                 float lightIndice,
+                                 float freqInt, float rmsInt,
+                                 const float* mfccInt, uint8_t nbMfccInt,
+                                 float freqExt, float rmsExt,
+                                 const float* mfccExt, uint8_t nbMfccExt) {
     if (!_pret) return false;
-    unsigned long debut = millis();
-    len = RH_RF95_MAX_MESSAGE_LEN;
-    while ((millis() - debut) < timeoutMs) {
-        if (_radio.available() && _radio.recv(buf, &len)) return true;
-        delay(10);
+
+    // ── Bloc ENV ──
+    BlocENV env;
+    env.magic    = MAGIC_ENV;
+    env.seq      = (uint16_t)(seq & 0xFFFF);  // tronqué proprement pour la trame
+    memset(env.hiveId, 0, 4); strncpy(env.hiveId, hiveId, 4);
+    env.timestamp = ts;
+    env.tempInt   = (int16_t)(tempInt * 100);
+    env.humInt    = (uint16_t)(humInt  * 10);
+    env.tempExt   = (int16_t)(tempExt * 100);
+    env.humExt    = (uint16_t)(humExt  * 10);
+    env.lightExt  = (uint16_t)(lightIndice * 10);
+    env.crc16     = crc16((uint8_t*)&env, SIZE_ENV - 2);
+
+    // ── Bloc AUD ──
+    BlocAUD aud;
+    aud.magic    = MAGIC_AUD;
+    aud.seq      = (uint16_t)(seq & 0xFFFF);
+    memset(aud.hiveId, 0, 4); strncpy(aud.hiveId, hiveId, 4);
+    aud.timestamp = ts;
+    aud.freqInt   = (uint16_t)(freqInt * 10);
+    aud.rmsInt    = (uint16_t)(rmsInt  * 10000);
+    aud.freqExt   = (uint16_t)(freqExt * 10);
+    aud.rmsExt    = (uint16_t)(rmsExt  * 10000);
+    for (int i = 0; i < 13; i++) {
+        aud.mfccInt[i] = (i < nbMfccInt) ? (int16_t)(mfccInt[i] * 100) : 0;
+        aud.mfccExt[i] = (i < nbMfccExt) ? (int16_t)(mfccExt[i] * 100) : 0;
     }
-    return false;
-}
+    aud.crc16 = crc16((uint8_t*)&aud, SIZE_AUD - 2);
 
-// ─── Affichage debug ─────────────────────────────────────────
-void BeetterLoRa::afficherTrame(const TrameBeetter& t) {
-    Serial.println(F("[LoRa] ── Contenu trame ──────────────────"));
-    Serial.printf("  magic     : 0x%02X\n", t.magic);
-    Serial.printf("  seq       : %u\n",     t.seq);
-    Serial.printf("  hive_id   : %.4s\n",   t.hiveId);
-    Serial.printf("  timestamp : %lu\n",    (unsigned long)t.timestamp);
-    Serial.printf("  temp_int  : %.2f °C\n",  t.tempInt  / 100.0f);
-    Serial.printf("  hum_int   : %.1f %%RH\n", t.humInt  / 10.0f);
-    Serial.printf("  temp_ext  : %.2f °C\n",  t.tempExt  / 100.0f);
-    Serial.printf("  hum_ext   : %.1f %%RH\n", t.humExt  / 10.0f);
-    Serial.printf("  lum       : %u ADC\n",   t.luminosite);
-    Serial.printf("  freq_int  : %.1f Hz\n",  t.freqDomInt  / 10.0f);
-    Serial.printf("  rms_int   : %.4f\n",     t.energieRMSInt / 10000.0f);
-    Serial.printf("  freq_ext  : %.1f Hz\n",  t.freqDomExt  / 10.0f);
-    Serial.printf("  rms_ext   : %.4f\n",     t.energieRMSExt / 10000.0f);
+    // ── Concaténer ENV + AUD → 1 trame de 96 bytes ──
+    uint8_t buf[SIZE_ENV + SIZE_AUD];
+    memcpy(buf,           &env, SIZE_ENV);
+    memcpy(buf + SIZE_ENV, &aud, SIZE_AUD);
 
-    Serial.print(F("  mfcc_int  : ["));
-    for (int i = 0; i < 13; i++)
-        Serial.printf(i < 12 ? "%.2f," : "%.2f", t.mfccInt[i] / 100.0f);
-    Serial.println(']');
-
-    Serial.print(F("  mfcc_ext  : ["));
-    for (int i = 0; i < 13; i++)
-        Serial.printf(i < 12 ? "%.2f," : "%.2f", t.mfccExt[i] / 100.0f);
-    Serial.println(']');
-
-    Serial.printf("  crc16     : 0x%04X\n", t.crc16);
-
-    // Bytes hex bruts
-    Serial.print(F("  hex       : "));
-    const uint8_t* raw = (const uint8_t*)&t;
-    for (int i = 0; i < BEETTER_FRAME_SIZE; i++)
-        Serial.printf("%02X ", raw[i]);
-    Serial.println();
-    Serial.println(F("[LoRa] ──────────────────────────────────"));
+    return _envoyer(buf, SIZE_ENV + SIZE_AUD, "ENV+AUD");
 }

@@ -188,15 +188,15 @@ def main():
     p.add_argument("--amp-int",    type=float, default=None, metavar="0-1", help="Fix sound_amp_int")
     p.add_argument("--freq-ext",   type=float, default=None, metavar="Hz",  help="Fix sound_freq_ext")
     p.add_argument("--amp-ext",    type=float, default=None, metavar="0-1", help="Fix sound_amp_ext")
-    p.add_argument("--light",      type=float, default=None, metavar="%",   help="Fix light_ext")
+    p.add_argument("--light",      type=float, default=None, metavar="0-10", help="Fix light_ext (0–10 scale)")
     p.add_argument("--light-mode",
                    choices=["auto", "day", "night", "spike"],
                    default="auto",
                    help=(
                        "auto  = sinusoidal daily cycle (default)\n"
-                       "day   = constant high light (~85%%)\n"
-                       "night = constant low light (~2%%)\n"
-                       "spike = oscillates between 0 and 95%% every 10 points "
+                       "day   = constant high light (~8.5/10)\n"
+                       "night = constant low light (~0.2/10)\n"
+                       "spike = oscillates between 0 and 9.5 every 10 points "
                        "(tests threshold breach + recovery)"
                    ))
     args = p.parse_args()

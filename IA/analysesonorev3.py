@@ -5,10 +5,10 @@ from sklearn.model_selection import train_test_split
 import random
 import time
 import joblib
-import numpy as np
-from influxdb_client import InfluxDBClient
-from app.blueprints.utils.influxdb import write_ia_prediction
 import os
+from datetime import datetime, timezone
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 # ==========================================
 # 🛠️ FONCTIONS UTILITAIRES (Pour un code propre)
@@ -204,22 +204,45 @@ modele_e = joblib.load("modele_essaimage.pkl")
 joblib.dump(modele_f, 'models/detector_frelon.pkl')
 joblib.dump(modele_c, 'models/detector_reine.pkl')
 
-# 2. Configuration InfluxDB (Remplacez par vos vrais identifiants)
+# ==========================================
+# 🛠️ FONCTIONS UTILITAIRES & INFLUXDB (100% Indépendantes)
+# ==========================================
+
+def write_ia_prediction_local(client, org, bucket_ia, beehive_id, etat_detecte, proba_f, proba_r, timestamp=None):
+    """
+    Écrit le résultat de l'IA. Fonction 100% indépendante de Flask !
+    """
+    ts = timestamp or datetime.now(timezone.utc)
+    point = (
+        Point("prediction_ia")
+        .tag("beehive_id", str(beehive_id))
+        .tag("etat_detecte", etat_detecte)
+        .field("probabilite_f", float(proba_f))
+        .field("probabilite_r", float(proba_r))
+        .time(ts, WritePrecision.S)
+    )
+    try:
+        client.write_api(write_options=SYNCHRONOUS).write(bucket=bucket_ia, org=org, record=point)
+        print(f"✅ InfluxDB mis à jour | État: {etat_detecte} | Frelon: {proba_f*100:.0f}% | Reine: {proba_r*100:.0f}%")
+    except Exception as e:
+        print(f"⚠️ Erreur d'écriture InfluxDB : {e}")
+        
+# 1. Configuration de la base de données
 INFLUX_URL = "http://localhost:8086"
 INFLUX_TOKEN = "my-super-secret-token"
 INFLUX_ORG = "beetter"
-INFLUX_BUCKET = "sensors"
-INFLUX_BUCKET_IA = "data_ia" 
+INFLUX_BUCKET = "sensors"       # Bucket des capteurs (Lecture)
+INFLUX_BUCKET_IA = "data_ia"    # Bucket des IA (Écriture)
 
+# Connexion
 client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 query_api = client.query_api()
 
-print("🛡️ Démarrage de la surveillance 24/7...")
+print("\n🚀 Démarrage de la surveillance 24/7...")
 
 while True:
     try:
-        # A. La bonne requête InfluxDB ! 
-        # On attrape toutes les mesures qui commencent par "mfcc_int_"
+        # A. On demande les derniers relevés MFCC
         query = f"""
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -5m)
@@ -230,28 +253,28 @@ while True:
         resultats = query_api.query_data_frame(query)
         
         if not resultats.empty:
-            # On prend le relevé le plus récent
             derniere_ligne = resultats.iloc[-1]
             beehive_id = derniere_ligne.get("beehive_id", "1")
             
-            # On reconstitue l'empreinte de 13 cases dynamiquement
+            # B. On reconstitue l'empreinte audio (les 13 MFCC)
             empreinte = np.array([
                 derniere_ligne.get(f"mfcc_int_{i}", 0.0) for i in range(13)
             ]).reshape(1, -1)
             
-            # B. Le verdict de l'IA (On prend la case [1] = la certitude du danger)
+            # C. Prédiction de l'IA
+            # [0][1] permet de récupérer spécifiquement le % de certitude du danger
             certitude_f = modele_f.predict_proba(empreinte)[0][1]
             certitude_r = modele_c.predict_proba(empreinte)[0][1]
             
-            # C. Logique de décision
+            # D. Logique de décision
             etat_texte = "normal"
             if certitude_f >= 0.75:
                 etat_texte = "attaque_frelon"
             elif certitude_r >= 0.75:
                 etat_texte = "chant_reine"
 
-            # D. Écriture immédiate dans le Bucket IA
-            write_ia_prediction(
+            # E. Sauvegarde dans le 2ème Bucket InfluxDB !
+            write_ia_prediction_local(
                 client=client,
                 org=INFLUX_ORG,
                 bucket_ia=INFLUX_BUCKET_IA,
@@ -263,10 +286,10 @@ while True:
             )
             
         else:
-            print("⏳ Aucune nouvelle donnée reçue de l'ESP32 dans les 5 dernières minutes.")
+            print("⏳ Aucune nouvelle donnée reçue dans les 5 dernières minutes.")
 
     except Exception as e:
         print(f"❌ Erreur lors de la vérification : {e}")
     
-    # On endort le script pendant 5 minutes (300 secondes)
+    # Pause de 5 minutes
     time.sleep(300)

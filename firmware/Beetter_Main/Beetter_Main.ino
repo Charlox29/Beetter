@@ -7,13 +7,13 @@
  */
 
 #include "BeetterConfig.h"
-#include <BeetterSD.h>
-#include <BeetterSHT40.h>
-#include <BeetterMic.h>
-#include <BeetterRTC.h>
-#include <BeetterLoRa.h>
-#include <BeetterPhoto.h>
-#include <BeetterWifi.h>
+#include "src/BeetterSD.h"
+#include "src/BeetterSHT40.h"
+#include "src/BeetterMic.h"
+#include "src/BeetterRTC.h"
+#include "src/BeetterLoRa.h"
+#include "src/BeetterPhoto.h"
+#include "src/BeetterWifi.h"
 
 // ─── Instances ───────────────────────────────────────────────
 BeetterSD     sd;

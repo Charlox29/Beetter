@@ -8,20 +8,20 @@ Firmware complet pour le module **Beetter Hive** (ESP32-C6-DevKitC-1-N8).
 
 ```
 Beetter/
-├── BeetterConfig.h              ← ⭐ FICHIER À ÉDITER en premier
+├── README.md
 │
-├── Beetter_Main/
-│   └── Beetter_Main.ino         ← Programme principal (ouvrir dans Arduino IDE)
-│
-└── src/
-    └── libraries/
-        ├── BeetterSD/           → Carte micro-SD (ADA4682)
-        ├── BeetterSHT40/        → Capteurs T°/Humidité (SHT40 x2)
-        ├── BeetterMic/          → Microphones I2S + FFT + MFCC (ICS-43434 x2)
-        ├── BeetterRTC/          → RTC PCF8523 (ADA3295)
-        ├── BeetterLoRa/         → Transmission LoRa (Grove RFM95)
-        ├── BeetterPhoto/        → Photorésistance (GPIO0)
-        └── BeetterWifi/         → WiFi + Bluetooth LE (ESP32-C6)
+└── Beetter_Main/                ← Programme principal
+    ├── Beetter_Main.ino         ← Ouvrir dans Arduino IDE
+    ├── BeetterConfig.h          ← Fichier à éditer en premier
+    │
+    └── lib/
+        ├── BeetterSD.cpp/h      → Carte micro-SD (ADA4682)
+        ├── BeetterSHT40.cpp/h   → Capteurs T°/Humidité (SHT40 x2)
+        ├── BeetterMic.cpp/h     → Microphones I2S + FFT + MFCC (ICS-43434 x2)
+        ├── BeetterRTC.cpp/h     → RTC PCF8523 (ADA3295)
+        ├── BeetterLoRa.cpp/h    → Transmission LoRa (Grove RFM95)
+        ├── BeetterPhoto.h       → Photorésistance (GPIO0)
+        └── BeetterWifi.h        → WiFi + Bluetooth LE (ESP32-C6)
 ```
 
 ---
@@ -52,22 +52,9 @@ https://github.com/Seeed-Studio/Grove_LoRa_433MHz_and_915MHz_RF
 
 ### 2. Installer les bibliothèques locales Beetter
 
-Copier chaque dossier de `src/libraries/` vers votre dossier Arduino libraries :
+Les bibliothèques Beetter sont incluses localement dans le dossier `Beetter_Main/lib/`. Arduino IDE les détectera automatiquement lors de l'ouverture du projet.
 
-- **Windows** : `Documents\Arduino\libraries\`
-- **macOS/Linux** : `~/Arduino/libraries/`
-
-Résultat attendu :
-```
-~/Arduino/libraries/
-  BeetterSD/
-  BeetterSHT40/
-  BeetterMic/
-  BeetterRTC/
-  BeetterLoRa/
-  BeetterPhoto/
-  BeetterWifi/
-```
+Aucune action supplémentaire n'est requise pour les bibliothèques locales ✓
 
 ### 3. Configurer la carte dans Arduino IDE
 
@@ -76,13 +63,15 @@ Résultat attendu :
 
   URL boards manager : `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 
-- **Flash Size** : 8MB
-- **Partition Scheme** : Default 4MB with spiffs
+**Paramètres obligatoires à configurer :**
+- **Flash Size** : `8MB (64Mb)`
+- **Partition Scheme** : `8M with spiffs (3MB APP/1.5MB SPIFFS)`
+- **USB CDC On Boot** : `Enabled` (pour la communication série via USB)
 
 ### 4. Ouvrir et configurer le projet
 
 1. Ouvrir `Beetter_Main/Beetter_Main.ino` dans Arduino IDE
-2. Éditer `BeetterConfig.h` (dans le même onglet) :
+2. Éditer `Beetter_Main/BeetterConfig.h` (même dossier) :
    - Changer `BEETTER_HIVE_ID` → ex. `"B002"` pour la 2e ruche
    - Renseigner `WIFI_SSID` et `WIFI_PASSWORD`
    - Ajuster les intervalles si besoin

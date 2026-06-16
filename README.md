@@ -48,7 +48,7 @@ Chaque ruche porte **deux nœuds capteurs** (intérieur et extérieur). Le micro
 | Extérieur | Microphone | Fréquence dominante extérieure | Hz |
 | Extérieur | Microphone | Amplitude extérieure | (relative) |
 | Extérieur | Microphone | Coefficients MFCC extérieurs c0…c12 | 13 valeurs |
-| Extérieur | Photorésistance | Luminosité | ADC |
+| Extérieur | Photorésistance | Luminosité | indice 0–10 |
 
 Par ruche : **9 mesures scalaires** + **26 coefficients MFCC** = **35 mesures** au total.
 
@@ -98,7 +98,7 @@ offset  taille  type      contenu
     13       2  uint16    humidité intérieure × 10 (%)
     15       2  int16     température extérieure × 100 (°C)
     17       2  uint16    humidité extérieure × 10 (%)
-    19       2  uint16    luminosité ADC
+    19       2  uint16    luminosité × 10 (indice 0–10, ex. 81 → 8.1)
     21       2  uint16    CRC-16/CCITT (sur les 21 premiers bytes)
 ```
 
@@ -125,7 +125,7 @@ offset  taille  type       contenu
 
 Le récepteur (`lora/receiver.py`) décode les blocs et envoie un relevé JSON à l'API Flask locale (`POST /api/data`), exactement comme `tools/simulate.py`. C'est Flask qui écrit ensuite dans InfluxDB, vérifie les seuils et crée les alertes — le récepteur ne touche plus InfluxDB directement.
 
-> **Point ouvert** : dans les trames binaires, `beehive_id` est un identifiant ASCII 4 chars (ex. `"B001"`). Dans la base PostgreSQL et dans Flask, les ruches ont un identifiant entier. Le récepteur convertit `"B001"` → `1` en extrayant les chiffres de la chaîne (configurable via `BEEHIVE_ID_FALLBACK` en l'absence de chiffre exploitable) ; cette correspondance reste approximative et devra être formalisée si la nomenclature des ruches évolue.
+`beehive_id` est un identifiant ASCII 4 chars (ex. `"B001"`), identique dans les trames binaires, la base PostgreSQL (`beehives.id`, `String(4)`) et l'API Flask — aucune conversion n'est nécessaire entre le récepteur et l'API.
 
 ---
 
@@ -135,12 +135,12 @@ Utilisé par le simulateur (`tools/simulate.py`) et tout émetteur qui envoie du
 
 ```json
 {
-  "beehive_id": 1,
+  "beehive_id": "B001",
   "temperature_int": 34.7, "humidity_int": 62.1,
   "temperature_ext": 18.3, "humidity_ext": 55.0,
   "sound_freq_int": 245.0, "sound_amp_int": 0.0042,
   "sound_freq_ext": 120.0, "sound_amp_ext": 0.0011,
-  "light_ext": 760.0,
+  "light_ext": 7.6,
   "mfcc_int": [1.2, -0.5, 0.3, 0.7, -1.1, 0.4, 0.0, -0.2, 0.9, 0.1, -0.3, 0.6, -0.8],
   "mfcc_ext": [0.8, -1.1, 0.6, 0.2, -0.4, 0.5, 0.1, -0.7, 1.0, 0.3, -0.1, 0.4, -0.6],
   "timestamp": "2026-05-19T14:32:00Z"
@@ -160,11 +160,11 @@ Après écriture, la route vérifie les seuils et crée une alerte automatique s
 Une **mesure** (`measurement`) par grandeur, un tag `beehive_id`, un champ `value` :
 
 ```
-measurement : temperature_int   tag: beehive_id="1"   field: value=34.7
-measurement : sound_freq_int    tag: beehive_id="1"   field: value=245.0
-measurement : mfcc_int_0        tag: beehive_id="1"   field: value=1.20
-measurement : mfcc_int_3        tag: beehive_id="1"   field: value=-2.45
-measurement : mfcc_ext_0        tag: beehive_id="1"   field: value=0.80
+measurement : temperature_int   tag: beehive_id="B001"   field: value=34.7
+measurement : sound_freq_int    tag: beehive_id="B001"   field: value=245.0
+measurement : mfcc_int_0        tag: beehive_id="B001"   field: value=1.20
+measurement : mfcc_int_3        tag: beehive_id="B001"   field: value=-2.45
+measurement : mfcc_ext_0        tag: beehive_id="B001"   field: value=0.80
 ```
 
 Les 26 mesures MFCC sont stockées mais **exclues des graphes du dashboard** (`CHART_MEASUREMENTS`). Elles sont en revanche incluses dans les exports CSV et utilisées par le pipeline ML.
@@ -183,14 +183,14 @@ L'application web envoie un lot des données récentes de toutes les ruches. Les
   "pushed_at": "2026-05-19T14:35:00Z",
   "beehives": [
     {
-      "id": 1,
+      "id": "B001",
       "name": "Ruche du verger",
       "location": "12 rue des Tilleuls, Noisy-le-Grand",
       "data": [
         {
           "timestamp": "2026-05-19T14:30:00Z",
           "temperature_int": 34.7, "humidity_int": 62.1,
-          "sound_freq_int": 245.0, "light_ext": 760.0
+          "sound_freq_int": 245.0, "light_ext": 7.6
         }
       ]
     }
@@ -205,11 +205,11 @@ L'application web envoie un lot des données récentes de toutes les ruches. Les
 `GET /api/beehives` — dernières valeurs par mesure scalaire :
 
 ```json
-{ "beehives": [ { "id": "1", "latest": {
+{ "beehives": [ { "id": "B001", "latest": {
   "temperature_int": {"value": 34.7, "time": "..."},
   "humidity_int":    {"value": 62.1, "time": "..."},
   "sound_freq_int":  {"value": 245.0, "time": "..."},
-  "light_ext":       {"value": 760.0, "time": "..."}
+  "light_ext":       {"value": 7.6, "time": "..."}
 } } ] }
 ```
 
@@ -305,7 +305,6 @@ Le récepteur gère la **détection de pertes de trames** (comparaison des numé
 | `API_ENABLE` | `0` | Activer l'envoi vers l'API Flask (`1` pour activer) |
 | `BEETTER_API_URL` | `http://localhost:5000` | URL de base de l'app Flask (`app/`) |
 | `BEETTER_API_TIMEOUT` | `5` | Timeout (secondes) des requêtes HTTP vers l'API |
-| `BEEHIVE_ID_FALLBACK` | `1` | ID de ruche utilisé si `beehive_id` ASCII ne contient aucun chiffre exploitable |
 
 **Lancement** :
 

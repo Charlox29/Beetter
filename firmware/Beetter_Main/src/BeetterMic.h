@@ -85,16 +85,16 @@ private:
     uint32_t  _fs   = 8000;
     bool      _pret = false;
 
-    // Buffers FFT (alloués dans la pile au moment de l'analyse)
+    // Buffers FFT statiques
     double _vReal[BEETTER_FFT_SIZE];
     double _vImag[BEETTER_FFT_SIZE];
 
-    /**
-     * Capture N échantillons du canal demandé.
-     * @param canal  0 = gauche (intérieur), 1 = droite (extérieur)
-     * @param n      Nombre d'échantillons
-     * @param out    Buffer de sortie (int32_t)
-     */
+    // Buffer de capture statique – alloué une fois au démarrage
+    // évite la fragmentation heap du malloc() répété
+    // 24000 samples × 4 bytes = 94 KB (taille fixe pour 3s @ 8kHz)
+    static int32_t _captureBuf[24000];
+    static uint32_t _captureBufSize;
+
     void _capturer(uint8_t canal, uint32_t n, int32_t* out);
 
     /**

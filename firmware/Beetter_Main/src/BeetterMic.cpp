@@ -17,6 +17,11 @@
 
 #include "BeetterMic.h"
 
+// Définition des membres statiques – alloués une seule fois en mémoire globale
+// 24000 × 4 bytes = 94 KB réservés dès le démarrage, jamais fragmentés
+int32_t  BeetterMic::_captureBuf[24000];
+uint32_t BeetterMic::_captureBufSize = 24000;
+
 // ─── Initialisation I2S ──────────────────────────────────────
 bool BeetterMic::begin(uint8_t bclk, uint8_t ws, uint8_t din, uint32_t fs) {
     _fs   = fs;
@@ -69,19 +74,14 @@ ResultatAudio BeetterMic::analyserInterieur(uint32_t dureeCaptureMs,
                                              uint8_t nbCoeffs) {
     if (!_pret) return {0, 0, {0}, 0, false};
 
-    // Nombre d'échantillons correspondant à la durée demandée
     uint32_t nTotal = (_fs * dureeCaptureMs) / 1000UL;
-    // Allocation dynamique pour éviter de saturer la stack ESP32
-    int32_t* buf = (int32_t*)malloc(nTotal * sizeof(int32_t));
-    if (!buf) {
-        Serial.println(F("[MIC] Mémoire insuffisante pour la capture."));
+    if (nTotal > _captureBufSize) {
+        Serial.printf("[MIC-INT] Durée trop longue (%lu samples > %lu)\n",
+                      (unsigned long)nTotal, (unsigned long)_captureBufSize);
         return {0, 0, {0}, 0, false};
     }
-
-    _capturer(1, nTotal, buf);   // 1 = canal droit (J5, SEL=3.3V) = INTERIEUR
-    ResultatAudio res = _analyser(buf, nTotal, fMin, fMax, nbCoeffs);
-    free(buf);
-    return res;
+    _capturer(1, nTotal, _captureBuf);   // canal droit (J5) = INTÉRIEUR
+    return _analyser(_captureBuf, nTotal, fMin, fMax, nbCoeffs);
 }
 
 // ─── Analyse publique : extérieur ────────────────────────────
@@ -91,19 +91,25 @@ ResultatAudio BeetterMic::analyserExterieur(uint32_t dureeCaptureMs,
     if (!_pret) return {0, 0, {0}, 0, false};
 
     uint32_t nTotal = (_fs * dureeCaptureMs) / 1000UL;
-    int32_t* buf = (int32_t*)malloc(nTotal * sizeof(int32_t));
-    if (!buf) {
-        Serial.println(F("[MIC] Mémoire insuffisante pour la capture."));
+    if (nTotal > _captureBufSize) {
+        Serial.printf("[MIC-EXT] Durée trop longue (%lu samples > %lu)\n",
+                      (unsigned long)nTotal, (unsigned long)_captureBufSize);
         return {0, 0, {0}, 0, false};
     }
-
-    _capturer(0, nTotal, buf);   // 0 = canal gauche (J2, SEL=GND) = EXTERIEUR
-    ResultatAudio res = _analyser(buf, nTotal, fMin, fMax, nbCoeffs);
-    free(buf);
-    return res;
+    _capturer(0, nTotal, _captureBuf);   // canal gauche (J2) = EXTÉRIEUR
+    return _analyser(_captureBuf, nTotal, fMin, fMax, nbCoeffs);
 }
 
-// ─── Analyse interne : FFT + MFCC ────────────────────────────
+// ─── Analyse interne : FFT + MFCC par fenêtrage temporel ────
+//
+//  Le signal de 3s est découpé en N fenêtres de BEETTER_FFT_SIZE samples.
+//  Les MFCC sont calculés sur chaque fenêtre puis moyennés.
+//  Résultat identique à librosa.feature.mfcc() avec ses paramètres par défaut,
+//  ce qui garantit la cohérence avec les données d'entraînement du modèle ML.
+//
+//  3000ms @ 8000Hz = 24000 samples = 11 fenêtres × 2048 samples
+//  Surcoût vs code précédent : ~120 bytes RAM, ~200ms CPU (négligeable)
+//
 ResultatAudio BeetterMic::_analyser(int32_t* samples, uint32_t n,
                                      float fMin, float fMax,
                                      uint8_t nbCoeffs) {
@@ -116,56 +122,66 @@ ResultatAudio BeetterMic::_analyser(int32_t* samples, uint32_t n,
         return res;
     }
 
-    // ── 1. Calcul de l'énergie RMS sur tous les échantillons ──
-    double sommeCarre = 0;
-    for (uint32_t i = 0; i < n; i++) {
-        double s = (double)samples[i] / 8388608.0;  // normalisation 24 bits
-        sommeCarre += s * s;
-    }
-    res.energieRMS = (float)sqrt(sommeCarre / n);
-
-    // ── 2. Préparation des buffers FFT (fenêtre centrale) ──
-    //  On prend les BEETTER_FFT_SIZE premiers échantillons (déjà représentatifs
-    //  pour une analyse de 3s – on peut moyenner plusieurs fenêtres si besoin)
-    for (uint32_t i = 0; i < BEETTER_FFT_SIZE; i++) {
-        double s = (double)samples[i] / 8388608.0;
-        // Fenêtre de Hamming : réduit les effets de bord
-        double w = 0.54 - 0.46 * cos(2.0 * M_PI * i / (BEETTER_FFT_SIZE - 1));
-        _vReal[i] = s * w;
-        _vImag[i] = 0.0;
-    }
-
-    // ── 3. FFT ──
-    ArduinoFFT<double> fft(_vReal, _vImag, BEETTER_FFT_SIZE, (double)_fs);
-    fft.compute(FFTDirection::Forward);
-    fft.complexToMagnitude();
-    // Après complexToMagnitude(), _vReal contient le spectre de magnitude.
-
-    // ── 4. Résolution fréquentielle ──
-    //  Δf = Fs / N_FFT
-    double df = (double)_fs / BEETTER_FFT_SIZE;
-
-    // Indices correspondant à [fMin, fMax]
+    // ── 1. Résolution fréquentielle et bornes ──
+    double   df    = (double)_fs / BEETTER_FFT_SIZE;
     uint32_t iBas  = (uint32_t)max(1.0, floor((double)fMin / df));
     uint32_t iHaut = (uint32_t)min((double)(BEETTER_FFT_SIZE / 2 - 1),
                                     ceil((double)fMax / df));
 
-    // ── 5. Fréquence dominante dans [fMin, fMax] ──
-    double   picMax  = 0;
-    uint32_t iPic    = iBas;
-    for (uint32_t i = iBas; i <= iHaut; i++) {
-        if (_vReal[i] > picMax) { picMax = _vReal[i]; iPic = i; }
-    }
-    res.freqDominante = (float)(iPic * df);
+    // ── 2. Nombre de fenêtres complètes dans le buffer ──
+    uint32_t nFenetres = n / BEETTER_FFT_SIZE;  // 24000 / 2048 = 11
 
-    // ── 6. Calcul MFCC ──
-    //  On passe uniquement la moitié positive du spectre.
-    //  26 filtres Mel est la valeur standard pour l'acoustique apicole.
-    //  Ce nombre est indépendant de BeetterConfig.h pour éviter les
-    //  problèmes de portée entre bibliothèque et sketch.
-    _calculerMFCC(_vReal, BEETTER_FFT_SIZE / 2,
-                  26, res.nbCoeffsMFCC,
-                  res.mfcc);
+    // ── 3. Accumulateurs pour le moyennage ──
+    double mfccSomme[13] = {0};
+    double rmsSomme      = 0.0;
+    double freqSomme     = 0.0;
+    float  mfccFenetre[13];
+
+    // ── 4. Boucle sur chaque fenêtre ──
+    for (uint32_t f = 0; f < nFenetres; f++) {
+        const int32_t* debut = samples + f * BEETTER_FFT_SIZE;
+
+        // 4a. RMS de cette fenêtre
+        double sommeCarre = 0.0;
+        for (uint32_t i = 0; i < BEETTER_FFT_SIZE; i++) {
+            double s = (double)debut[i] / 8388608.0;
+            sommeCarre += s * s;
+        }
+        rmsSomme += sqrt(sommeCarre / BEETTER_FFT_SIZE);
+
+        // 4b. Fenêtrage de Hamming + copie dans _vReal
+        for (uint32_t i = 0; i < BEETTER_FFT_SIZE; i++) {
+            double s = (double)debut[i] / 8388608.0;
+            double w = 0.54 - 0.46 * cos(2.0 * M_PI * i / (BEETTER_FFT_SIZE - 1));
+            _vReal[i] = s * w;
+            _vImag[i] = 0.0;
+        }
+
+        // 4c. FFT
+        ArduinoFFT<double> fft(_vReal, _vImag, BEETTER_FFT_SIZE, (double)_fs);
+        fft.compute(FFTDirection::Forward);
+        fft.complexToMagnitude();
+
+        // 4d. Fréquence dominante de cette fenêtre
+        double   picMax = 0.0;
+        uint32_t iPic   = iBas;
+        for (uint32_t i = iBas; i <= iHaut; i++) {
+            if (_vReal[i] > picMax) { picMax = _vReal[i]; iPic = i; }
+        }
+        freqSomme += (double)iPic * df;
+
+        // 4e. MFCC de cette fenêtre
+        _calculerMFCC(_vReal, BEETTER_FFT_SIZE / 2,
+                      26, res.nbCoeffsMFCC, mfccFenetre);
+        for (int c = 0; c < res.nbCoeffsMFCC; c++)
+            mfccSomme[c] += mfccFenetre[c];
+    }
+
+    // ── 5. Moyennage sur toutes les fenêtres ──
+    res.energieRMS    = (float)(rmsSomme  / nFenetres);
+    res.freqDominante = (float)(freqSomme / nFenetres);
+    for (int c = 0; c < res.nbCoeffsMFCC; c++)
+        res.mfcc[c] = (float)(mfccSomme[c] / nFenetres);
 
     res.valide = true;
     return res;

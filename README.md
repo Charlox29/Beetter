@@ -121,13 +121,11 @@ offset  taille  type       contenu
 
 ---
 
-### 2. Réception et écriture dans InfluxDB
+### 2. Réception et envoi vers l'API Flask
 
-Le récepteur (`lora/receiver.py`) décode les blocs et écrit les points **directement dans InfluxDB** via `influxdb-client`. Les scalaires et les 26 coefficients MFCC génèrent chacun un point séparé avec le tag `beehive_id`.
+Le récepteur (`lora/receiver.py`) décode les blocs et envoie un relevé JSON à l'API Flask locale (`POST /api/data`), exactement comme `tools/simulate.py`. C'est Flask qui écrit ensuite dans InfluxDB, vérifie les seuils et crée les alertes — le récepteur ne touche plus InfluxDB directement.
 
-> **Architecture cible à implémenter** : le récepteur devrait appeler `POST /api/data` (comme `tools/simulate.py`) plutôt qu'écrire en direct, afin de centraliser la logique de seuil et d'alerte dans Flask. Le code actuel contourne Flask — c'est à refactoriser.
-
-> **Point ouvert** : dans les trames binaires, `beehive_id` est un identifiant ASCII 4 chars (ex. `"B001"`). Dans la base PostgreSQL et dans Flask, les ruches ont un identifiant entier. La correspondance entre les deux n'est pas encore implémentée.
+> **Point ouvert** : dans les trames binaires, `beehive_id` est un identifiant ASCII 4 chars (ex. `"B001"`). Dans la base PostgreSQL et dans Flask, les ruches ont un identifiant entier. Le récepteur convertit `"B001"` → `1` en extrayant les chiffres de la chaîne (configurable via `BEEHIVE_ID_FALLBACK` en l'absence de chiffre exploitable) ; cette correspondance reste approximative et devra être formalisée si la nomenclature des ruches évolue.
 
 ---
 
@@ -292,7 +290,7 @@ L'application Flask qui tourne sur le Raspberry Pi. Elle reçoit les relevés vi
 
 ### 3. Récepteur LoRa (`lora/`)
 
-Le script Python qui tourne sur le Raspberry Pi. Il écoute les trames binaires des nœuds ESP32 via un module **Grove LoRa 868 MHz** connecté en série (`/dev/serial0`), les décode (blocs ENV et AUD) et écrit les points dans InfluxDB.
+Le script Python qui tourne sur le Raspberry Pi. Il écoute les trames binaires des nœuds ESP32 via un module **Grove LoRa 868 MHz** connecté en série (`/dev/serial0`), les décode (blocs ENV et AUD) et envoie chaque relevé à l'API Flask locale (`POST /api/data`).
 
 **Trames supportées** :
 - `ENV` (23 bytes, magic `0xE0`) — température, humidité, luminosité
@@ -300,30 +298,35 @@ Le script Python qui tourne sur le Raspberry Pi. Il écoute les trames binaires 
 
 Le récepteur gère la **détection de pertes de trames** (comparaison des numéros de séquence par ruche) et journalise les statistiques (reçues / ENV / AUD / erreurs).
 
-> **Architecture cible** : le récepteur devrait appeler `POST /api/data` plutôt qu'écrire en direct dans InfluxDB, afin que la logique de seuil et d'alerte de Flask soit appliquée à chaque relevé. Le code actuel contourne Flask — c'est à refactoriser (voir `tools/simulate.py` pour l'approche cible).
-
 **Variables d'environnement** :
 
 | Variable | Défaut | Description |
 |---|---|---|
-| `INFLUX_ENABLE` | `0` | Activer l'écriture InfluxDB (`1` pour activer) |
-| `INFLUX_URL` | `http://localhost:8086` | URL InfluxDB |
-| `INFLUX_TOKEN` | — | Token InfluxDB |
-| `INFLUX_ORG` | `beetter` | Organisation InfluxDB |
-| `INFLUX_BUCKET` | `beetter` | Bucket InfluxDB |
+| `API_ENABLE` | `0` | Activer l'envoi vers l'API Flask (`1` pour activer) |
+| `BEETTER_API_URL` | `http://localhost:5000` | URL de base de l'app Flask (`app/`) |
+| `BEETTER_API_TIMEOUT` | `5` | Timeout (secondes) des requêtes HTTP vers l'API |
+| `BEEHIVE_ID_FALLBACK` | `1` | ID de ruche utilisé si `beehive_id` ASCII ne contient aucun chiffre exploitable |
 
 **Lancement** :
 
 ```bash
 cd lora
 pip install -r requirements.txt
-# Sans écriture InfluxDB (affichage console seulement)
+
+# Sans envoi à l'API (affichage console seulement)
 python3 receiver.py
-# Avec écriture InfluxDB
-INFLUX_ENABLE=1 INFLUX_TOKEN=mon_token python3 receiver.py
+
+# Avec envoi vers l'API Flask — charger les variables du .env à la racine
+source ../.env
+API_ENABLE=1 python3 receiver.py
+
+# Ou directement avec les variables
+API_ENABLE=1 \
+  BEETTER_API_URL=http://localhost:5000 \
+  python3 receiver.py
 ```
 
-**Dépendance** : `grove_lora.py` doit être dans le même dossier (pilote série du module Grove LoRa).
+**Dépendance** : `grove_lora.py` doit être dans le même dossier (pilote série du module Grove LoRa). L'app Flask (`app/`) doit être lancée et accessible à `BEETTER_API_URL` pour que l'envoi fonctionne.
 
 ---
 
@@ -481,7 +484,7 @@ python simulate.py --burst 200
    ```bash
    cd lora
    pip install -r requirements.txt
-   INFLUX_ENABLE=1 INFLUX_TOKEN=mon_token python3 receiver.py
+   API_ENABLE=1 BEETTER_API_URL=http://localhost:5000 python3 receiver.py
    ```
 
 **Lancer le récepteur LoRa en tant que service systemd** :
@@ -496,11 +499,8 @@ After=network.target
 [Service]
 WorkingDirectory=/home/pi/beetter/lora
 ExecStart=/usr/bin/python3 /home/pi/beetter/lora/receiver.py
-Environment=INFLUX_ENABLE=1
-Environment=INFLUX_URL=http://localhost:8086
-Environment=INFLUX_TOKEN=mon_token
-Environment=INFLUX_ORG=beetter
-Environment=INFLUX_BUCKET=sensors
+Environment=API_ENABLE=1
+Environment=BEETTER_API_URL=http://localhost:5000
 Restart=on-failure
 
 [Install]

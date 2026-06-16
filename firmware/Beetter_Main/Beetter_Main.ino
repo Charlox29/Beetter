@@ -223,10 +223,21 @@ void loop() {
 
 // ════════════════════════════════════════════════════════════
 void _initFichiersCSV() {
-    if (!SD.exists(SD_LOG_ENV))
+    // Écrit l'en-tête si le fichier est absent OU vide (ex. après rm du contenu)
+    auto _needsHeader = [](const char* chemin) -> bool {
+        if (!SD.exists(chemin)) return true;
+        File f = SD.open(chemin, FILE_READ);
+        if (!f) return true;
+        bool vide = (f.size() == 0);
+        f.close();
+        return vide;
+    };
+
+    if (_needsHeader(SD_LOG_ENV))
         sd.ecrireLigne(SD_LOG_ENV,
             "timestamp,T_int_C,H_int_RH,Ha_int_gm3,T_ext_C,H_ext_RH,Ha_ext_gm3,lum_brut,lum_indice");
-    if (!SD.exists(SD_LOG_MFCC_INT)) {
+
+    if (_needsHeader(SD_LOG_MFCC_INT)) {
         snprintf(_csvBuf, sizeof(_csvBuf), "timestamp,freq_dom_Hz,rms");
         for (int i = 0; i < MFCC_NUM_COEFFS; i++) {
             char tmp[10];
@@ -235,7 +246,8 @@ void _initFichiersCSV() {
         }
         sd.ecrireLigne(SD_LOG_MFCC_INT, _csvBuf);
     }
-    if (!SD.exists(SD_LOG_MFCC_EXT)) {
+
+    if (_needsHeader(SD_LOG_MFCC_EXT)) {
         snprintf(_csvBuf, sizeof(_csvBuf), "timestamp,freq_dom_Hz,rms");
         for (int i = 0; i < MFCC_NUM_COEFFS; i++) {
             char tmp[10];

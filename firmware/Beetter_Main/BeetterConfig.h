@@ -45,8 +45,8 @@
 // ─── PHOTORÉSISTANCE GL5539 – Paramètres physiques ───────────
 //  Diviseur de tension : 3.3V ── R_fixe ── GPIO0 ── R_photo ── GND
 #define R_FIXE_OHM   10000.0f   // résistance fixe du diviseur (Ω)
-#define LDR_GAMMA    0.24f       // exposant recalibré sur exemplaire B001 (datasheet = 0.7)
-#define LDR_A        3540000.0f  // constante recalibrée sur exemplaire B001 (26 000 lux à ADC=3242)
+#define LDR_GAMMA    0.7f        // exposant GL5539 datasheet (calibré ADC=2642 → 300 lux)
+#define LDR_A        297957.0f   // calibré : ADC=2642 (bureau éclairé) = 300 lux
 #define LUX_MAX      100000.0f   // référence 10/10 = plein soleil (lux)
 
 // ─── LED RGB intégrée ────────────────────────────────────────
@@ -96,3 +96,10 @@
 
 // ─── BLUETOOTH ───────────────────────────────────────────────
 #define BT_DEVICE_NAME   "Beetter-Hive"
+
+// ─── FUSEAU HORAIRE DE COMPILATION ───────────────────────────
+// Décalage en secondes entre l'heure locale de la machine qui compile
+// et UTC. Utilisé pour corriger reglerDepuisCompilation().
+// France heure d'hiver : 3600 (UTC+1)
+// France heure d'été   : 7200 (UTC+2)
+#define UTC_OFFSET_SEC  3600

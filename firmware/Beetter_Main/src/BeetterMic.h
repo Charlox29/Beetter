@@ -3,8 +3,8 @@
  *  BeetterMic.h  –  Bibliothèque microphones I2S + MFCC
  * =============================================================
  *  Matériel : 2× Adafruit 6049 (ICS-43434) en configuration stéréo
- *   - Canal GAUCHE (SEL=GND)   → Micro INTÉRIEUR (J2)
- *   - Canal DROIT  (SEL=3.3V)  → Micro EXTÉRIEUR (J5)
+ *   - Canal GAUCHE (J2, SEL=GND)   → Micro EXTÉRIEUR
+ *   - Canal DROIT  (J5, SEL=3.3V)  → Micro INTÉRIEUR
  *
  *  Fonctionnalités :
  *   - Capture audio I2S configurable (durée, Fs)

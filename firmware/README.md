@@ -188,8 +188,8 @@ ADC (0..4095) → R_ldr → Lux → indice log 0.0–10.0
 | Paramètre | Valeur | Description |
 |---|---|---|
 | `R_FIXE_OHM` | 10 000 Ω | Résistance du diviseur |
-| `LDR_GAMMA` | 0.24 | Exposant calibré (datasheet = 0.7) |
-| `LDR_A` | 3 540 000 | Constante calibrée |
+| `LDR_GAMMA` | 0.7 | Exposant GL5539 datasheet |
+| `LDR_A` | 297 957 | Calibré : ADC=2642 (bureau éclairé) = 300 lux |
 | `LUX_MAX` | 100 000 lux | Référence 10/10 (plein soleil) |
 
 L'indice est logarithmique (échelle Lux) pour refléter la perception humaine de la luminosité. `0.0` = nuit complète, `10.0` = plein soleil direct.
@@ -249,6 +249,8 @@ Une trame = 2 blocs concaténés = **96 bytes**, envoyés toutes les 30s.
 
 Les 3 fichiers sont ouverts en une seule opération par cycle (`beginCycle/endCycle`) pour minimiser l'usure du système FAT.
 
+L'en-tête CSV est réécrit automatiquement si le fichier est **absent ou vide** — vider le contenu d'un fichier CSV puis redémarrer l'ESP32 suffit pour réinitialiser proprement.
+
 ---
 
 ## Beetter Home – Récepteur Python (Raspberry Pi)
@@ -300,6 +302,7 @@ FREQUENCE = 868.0            # MHz — doit correspondre à BeetterConfig.h
 | 5 | `seqLoRa` uint32_t — pas d'overflow à 65 535 cycles | `Beetter_Main` |
 | 6 | WiFi déconnecté après sync NTP (~40 mA économisés) | `Beetter_Main` |
 | 7 | Démarrage autonome — pas de `while(!Serial)` | `Beetter_Main` |
+| 8 | Compilation UTC — `UTC_OFFSET_SEC` soustrait à `__TIME__` | `BeetterRTC` |
 
 ---
 

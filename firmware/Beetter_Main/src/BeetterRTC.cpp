@@ -5,6 +5,7 @@
  */
 
 #include "BeetterRTC.h"
+#include "../BeetterConfig.h"
 #include <WiFi.h>
 #include "esp_sntp.h"
 
@@ -53,9 +54,14 @@ void BeetterRTC::regler(uint16_t annee, uint8_t mois, uint8_t jour,
 }
 
 void BeetterRTC::reglerDepuisCompilation() {
-    // __DATE__ et __TIME__ contiennent la date/heure de compilation
-    _rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
-    Serial.println(F("[RTC] Réglé à la date de compilation."));
+    // __DATE__ et __TIME__ = heure locale de compilation (UTC+1 en France)
+    // On soustrait UTC_OFFSET_SEC pour stocker l'heure UTC dans le RTC
+    DateTime local(F(__DATE__), F(__TIME__));
+    DateTime utc(local.unixtime() - UTC_OFFSET_SEC);
+    _rtc.adjust(utc);
+    Serial.printf("[RTC] Regle a la compilation (UTC) : %04d-%02d-%02d %02d:%02d:%02d\n",
+                  utc.year(), utc.month(), utc.day(),
+                  utc.hour(), utc.minute(), utc.second());
 }
 
 // ─── Synchronisation NTP ─────────────────────────────────────

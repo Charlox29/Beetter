@@ -510,6 +510,214 @@ WantedBy=multi-user.target
 sudo systemctl enable --now beetter-lora
 ```
 
+### Mises à jour ultérieures (`deploy.sh`)
+
+`deploy.sh`, à la racine du repo sur le Pi, automatise les déploiements suivants : il récupère le dernier code depuis GitHub, reconstruit l'image Docker et redémarre l'app Flask et le service LoRa.
+
+```bash
+cd ~/beetter-stack
+./deploy.sh                       # branche main, rebuild complet
+./deploy.sh --no-build            # redémarre sans rebuild (templates/CSS/JS seulement)
+./deploy.sh --branch feature/audio
+./deploy.sh --force               # écrase sans demander les modifs locales non commitées
+```
+
+S'il détecte des modifications locales non commitées sur le Pi (test rapide, fichier édité à la main...) qui empêcheraient le `git checkout`/`git pull`, il les affiche et **demande confirmation** avant de les écraser (`git reset --hard`, sur les fichiers suivis uniquement — les fichiers non suivis ne sont jamais supprimés automatiquement) plutôt que d'échouer au milieu du script ou de discard silencieusement. Répondre non annule le déploiement ; `--force` saute la question (utile en script non interactif, à utiliser en connaissance de cause).
+
+Étapes effectuées : `git fetch` → gestion des modifs locales ci-dessus → `git checkout` + `git pull` → vérification de `app/.env` → `docker compose up -d --build` → attente que Flask réponde sur `:5000` → redémarrage du service systemd `beetter-lora` s'il existe.
+
+**Contenu de `deploy.sh`** (à la racine du repo) :
+
+```bash
+#!/bin/bash
+# =============================================================
+#  deploy.sh — Script de déploiement Beetter
+#
+#  Ce script automatise le déploiement de l'app Flask sur le
+#  Raspberry Pi. Il récupère le dernier code depuis GitHub,
+#  reconstruit les images Docker et redémarre les services.
+#
+#  Usage   : ./deploy.sh [--no-build] [--branch <nom>] [--force]
+#  Exemple : ./deploy.sh
+#            ./deploy.sh --branch feature/audio
+#            ./deploy.sh --no-build
+#            ./deploy.sh --force
+# =============================================================
+
+set -euo pipefail
+# set -e  : arrête le script dès qu'une commande retourne une erreur
+# set -u  : arrête si une variable non définie est utilisée
+# set -o pipefail : arrête si une commande dans un pipe échoue
+# Sans ça, un script bash continue même si une étape a échoué,
+# ce qui peut déployer un code cassé sans le signaler.
+
+# ── Couleurs pour les logs ────────────────────────────────────
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
+CYAN='\033[0;36m'; NC='\033[0m'
+
+log()     { echo -e "${CYAN}[deploy]${NC} $1"; }
+success() { echo -e "${GREEN}[deploy]${NC} ✓ $1"; }
+warn()    { echo -e "${YELLOW}[deploy]${NC} ⚠ $1"; }
+error()   { echo -e "${RED}[deploy]${NC} ✗ $1"; exit 1; }
+
+# ── Paramètres par défaut ──────────────────────────────────────
+BRANCH="main"
+DO_BUILD=true
+FORCE=false
+# $(cd ... && pwd) : résout le chemin absolu du dossier app/
+# même si le script est lancé depuis un autre répertoire
+APP_DIR="$(cd "$(dirname "$0")/app" && pwd)"
+LORA_SERVICE="beetter-lora"
+
+# ── Parsing des arguments ────────────────────────────────────────
+# Permet d'appeler ./deploy.sh --no-build ou ./deploy.sh --branch develop
+# sans modifier le script lui-même
+while [[ $# -gt 0 ]]; do
+  case $1 in
+    --no-build) DO_BUILD=false; shift ;;
+    --branch)   BRANCH="$2"; shift 2 ;;
+    --force)    FORCE=true; shift ;;
+    -h|--help)
+      echo "Usage: $0 [--no-build] [--branch <nom>] [--force]"
+      echo ""
+      echo "Options:"
+      echo "  --no-build       Redémarre sans reconstruire l'image Docker"
+      echo "                   (utile si seuls templates ou JS ont changé)"
+      echo "  --branch <nom>   Déploie une branche spécifique (défaut: main)"
+      echo "  --force          Écrase les modifications locales sans demander"
+      echo "                   (à utiliser seulement si tu es sûr de vouloir"
+      echo "                   perdre les changements non commités sur le Pi)"
+      exit 0 ;;
+    *) error "Argument inconnu : $1" ;;
+  esac
+done
+
+# ──────────────────────────────────────────────────────────────
+log "Déploiement Beetter — branche : ${BRANCH}"
+echo "────────────────────────────────────────────"
+
+# ── 1. Récupération du code depuis GitHub ──────────────────────
+# git fetch : télécharge les nouveaux commits depuis GitHub
+#             SANS les appliquer au code local.
+#             C'est une étape de préparation sûre.
+log "Récupération des modifications (git fetch)..."
+git fetch origin
+
+# Le Pi accumule parfois des modifications locales (test rapide, fichier
+# édité à la main pour déboguer...). Si on laisse `git checkout`/`git pull`
+# se débattre avec ça, l'un des deux échoue à mi-script avec une erreur
+# git brute et `set -e` arrête tout net, sans rien proposer. On détecte
+# le cas en amont — avant même le checkout — et on demande explicitement
+# avant d'écraser quoi que ce soit : on ne veut jamais perdre du travail
+# en cours sans confirmation. On ne touche qu'aux fichiers SUIVIS (reset
+# --hard) ; les fichiers non suivis (notes perso, scripts de test...) ne
+# sont jamais supprimés automatiquement.
+if [[ -n "$(git status --porcelain)" ]]; then
+  warn "Modifications locales détectées sur le Pi :"
+  git status --short
+  if [[ "$FORCE" != true ]]; then
+    if [[ ! -t 0 ]]; then
+      error "Session non interactive : relance avec --force pour écraser, ou commit/stash tes modifications avant de redéployer."
+    fi
+    read -rp "Les écraser (git reset --hard) pour repartir sur origin/${BRANCH} ? [y/N] " reponse
+    if [[ ! "$reponse" =~ ^[Yy]$ ]]; then
+      error "Déploiement annulé. Commit ou 'git stash' tes modifications, puis relance ./deploy.sh."
+    fi
+  fi
+  warn "Modifications locales écrasées (git reset --hard)."
+  git reset --hard HEAD
+fi
+
+git checkout "$BRANCH"
+
+# git pull : applique les commits téléchargés dans le dossier local.
+#            Après ce pull, les fichiers sur le Pi sont identiques
+#            à ce qui est sur GitHub.
+git pull origin "$BRANCH"
+
+# git rev-parse --short HEAD : affiche le hash court (7 caractères)
+# du commit qui vient d'être appliqué. Utile pour savoir exactement
+# quelle version du code tourne en production.
+success "Code à jour ($(git rev-parse --short HEAD))"
+
+# ── 2. Vérification du .env ──────────────────────────────────────
+# Le fichier .env contient les secrets (token InfluxDB, clé Flask, etc.)
+# Il n'est pas dans Git (dans .gitignore) donc doit être créé manuellement
+# sur chaque machine. Si absent, on copie le modèle et on arrête.
+if [[ ! -f "$APP_DIR/.env" ]]; then
+  warn ".env manquant dans app/ — copie de .env.example"
+  cp "$APP_DIR/.env.example" "$APP_DIR/.env"
+  warn "Edite $APP_DIR/.env avant de relancer le script !"
+  exit 1
+fi
+success ".env présent"
+
+# ── 3. Docker Compose ──────────────────────────────────────────────
+cd "$APP_DIR"
+
+if [[ "$DO_BUILD" == true ]]; then
+  # --build         : reconstruit l'image Docker depuis le Dockerfile
+  #                   Indispensable quand du code Python ou des dépendances
+  #                   ont changé. Sans ça, Docker réutilise l'ancienne image
+  #                   et les modifications ne sont pas prises en compte.
+  # --remove-orphans: supprime les conteneurs d'anciens services
+  #                   qui ne sont plus dans compose.yml
+  log "Build et redémarrage des conteneurs Docker..."
+  docker compose up -d --build --remove-orphans
+else
+  # Sans --build : Docker réutilise les images existantes.
+  # Suffisant quand on modifie uniquement des templates HTML ou du CSS/JS,
+  # car ces fichiers sont montés en volume (pas copiés dans l'image).
+  log "Redémarrage sans rebuild (--no-build)..."
+  docker compose up -d --remove-orphans
+fi
+
+# ── 4. Test de santé Flask ────────────────────────────────────────
+# On attend que Flask réponde avant de déclarer le déploiement réussi.
+# curl -sf : -s = silencieux (pas d'affichage), -f = erreur si code HTTP >= 400
+# On essaie jusqu'à 15 fois (30 secondes) car le démarrage de Gunicorn
+# + la connexion à PostgreSQL prend quelques secondes.
+log "Attente du démarrage de Flask..."
+for i in {1..15}; do
+  if curl -sf http://localhost:5000 > /dev/null 2>&1; then
+    success "Flask répond sur :5000"
+    break
+  fi
+  sleep 2
+  if [[ $i -eq 15 ]]; then
+    error "Flask ne répond pas après 30s — vérifie : docker compose logs"
+  fi
+done
+
+# ── 5. Redémarrage du service LoRa ──────────────────────────────────
+# Le receiver LoRa tourne en dehors de Docker (service systemd).
+# On le redémarre pour qu'il prenne en compte d'éventuelles
+# modifications de receiver.py ou de ses variables d'environnement.
+# is-active --quiet : vérifie silencieusement si le service existe et tourne.
+if systemctl is-active --quiet "$LORA_SERVICE" 2>/dev/null; then
+  log "Redémarrage du service LoRa..."
+  sudo systemctl restart "$LORA_SERVICE"
+  success "Service ${LORA_SERVICE} redémarré"
+else
+  warn "Service ${LORA_SERVICE} non trouvé ou inactif — ignoré"
+fi
+
+# ── 6. Résumé final ──────────────────────────────────────────────────
+echo ""
+echo "────────────────────────────────────────────"
+success "Déploiement terminé !"
+# hostname -I : liste toutes les adresses IP de la machine
+# awk '{print $1}' : garde uniquement la première (l'IP locale)
+log "Dashboard local : http://$(hostname -I | awk '{print $1}'):5000"
+# git log -1 --format='%h — %s' :
+#   -1     = uniquement le dernier commit
+#   %h     = hash court (7 caractères) du commit déployé
+#   %s     = message du commit
+# Permet de savoir exactement quelle version du code tourne en prod.
+log "Commit déployé  : $(git log -1 --format='%h — %s')"
+log "Logs            : docker compose logs -f  (depuis app/)"
+```
+
 ### Mode kiosk au démarrage — Raspberry Pi (optionnel)
 
 Pour que le Raspberry Pi ouvre automatiquement le dashboard en plein écran.
@@ -654,6 +862,7 @@ flask run --debug --port 5001
 
 ```
 beetter/
+├── deploy.sh               # Script de déploiement Pi (git pull + docker compose + systemd)
 ├── app/                   # Application web Raspberry Pi (Flask :5000)
 │   ├── blueprints/
 │   │   ├── api/           # POST /api/data — ingest JSON + données de graphe
@@ -706,7 +915,7 @@ beetter/
 │   ├── train_phase1.py    # Pré-entraînement contrastif non supervisé
 │   └── train_phase2.py    # Fine-tuning supervisé
 ├── lora/                  # Récepteur LoRa (Grove 868 MHz via série)
-│   ├── receiver.py        # Décode blocs ENV / AUD, écrit dans InfluxDB
+│   ├── receiver.py        # Décode blocs ENV / AUD, envoie à l'API Flask (POST /api/data)
 │   ├── grove_lora.py      # Pilote série du module Grove LoRa
 │   └── requirements.txt
 ├── android/               # Application Android (Kotlin + Jetpack Compose)

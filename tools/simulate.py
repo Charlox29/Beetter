@@ -32,7 +32,7 @@ from datetime import datetime, timezone, timedelta
 import requests
 
 DEFAULT_URL      = "http://localhost:5000"
-DEFAULT_IDS      = [1]
+DEFAULT_IDS      = ["B001"]
 DEFAULT_INTERVAL = 10
 
 TEMP_BASE = 35.0;  TEMP_AMP = 2.0
@@ -174,7 +174,7 @@ def run_burst(url, ids, points, include_mfcc, overrides=None, light_mode="auto")
 def main():
     p = argparse.ArgumentParser(description="Beetter sensor simulator")
     p.add_argument("--url",      default=DEFAULT_URL)
-    p.add_argument("--ids",      nargs="+", type=int, default=DEFAULT_IDS, metavar="ID")
+    p.add_argument("--ids",      nargs="+", type=str, default=DEFAULT_IDS, metavar="ID")
     p.add_argument("--interval", type=int, default=DEFAULT_INTERVAL, metavar="SEC")
     p.add_argument("--burst",    type=int, default=0, metavar="N")
     p.add_argument("--no-mfcc",  action="store_true",

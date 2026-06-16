@@ -11,16 +11,15 @@ Contents:
   LabeledBeehiveDataset    – labelled dataset for SupCon fine-tuning
   BalancedClassSampler     – over/under-samples to keep batch class distribution even
 
-Feature vector layout (same for inside and outside):
-  [0] temperature   (°C, z-scored)
-  [1] humidity      (%, z-scored)
-  [2] log(RMS)      (log applied FIRST, then z-scored — see note below)
-  [3] dom_freq      (Hz, z-scored)
-  [4] mfcc_1  ┐
-  [5] mfcc_2  │  each coefficient has its OWN μ and σ (per-coefficient z-score)
-  [6] mfcc_3  │  because MFCC coefficients have very different natural scales:
-  [7] mfcc_4  │  C1 might range −30 to +30; C5 might range −3 to +3
-  [8] mfcc_5  ┘
+Feature vector layout (same for inside and outside, 17 dimensions total):
+  [0]  temperature   (°C, z-scored)
+  [1]  humidity      (%, z-scored)
+  [2]  dom_freq      (Hz, z-scored)
+  [3]  log(RMS)      (log applied FIRST, then z-scored — see note below)
+  [4]  mfcc_0  ┐
+  [5]  mfcc_1  │  each coefficient has its OWN μ and σ (per-coefficient z-score)
+  ...  ...     │  because MFCC coefficients have very different natural scales:
+  [16] mfcc_12 ┘  C0 might range −55 to −35; C12 might range −1 to +1
 
 NOTE on log(RMS):
   RMS values are strictly positive and span several orders of magnitude
@@ -60,6 +59,10 @@ assert _PACKET_STRUCT.size == LORA_PKT_CFG.size_bytes, (
 
 def decode_packet(raw: bytes) -> dict:
     """
+    DEPRECATED: live decoding happens in lora/receiver.py. This function is kept
+    only for the legacy 31-byte single-packet format and is not used by the
+    current 13-MFCC binary protocol.
+
     Unpack a 31-byte LoRa binary payload into a dict of physical-unit values.
 
     All integer scaling from the ESP32 firmware is inverted here so that
@@ -110,7 +113,11 @@ def packet_to_raw_features(
     packet: dict,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
-    Convert a decoded packet dict into two (9,) float32 arrays.
+    DEPRECATED: live decoding happens in lora/receiver.py. This function is kept
+    only for the legacy 31-byte single-packet format and is not used by the
+    current 13-MFCC binary protocol.
+
+    Convert a decoded packet dict into two (9,) float32 arrays (legacy 5-MFCC format).
 
     Note: log(RMS) is applied here (natural log, not log10).
     The FeatureNormalizer will then z-score the full 9-d vector, including
@@ -175,13 +182,13 @@ class FeatureNormalizer:
 
     def fit(self, data: np.ndarray) -> "FeatureNormalizer":
         """
-        Compute μ and σ from an (N, 9) array of raw feature vectors.
+        Compute μ and σ from an (N, 17) array of raw feature vectors.
 
         sigma is clipped to 1e-8 to handle constant features (e.g. a broken
         sensor that always reads 0°C) — this avoids division by zero.
 
         Args:
-            data: (N, 9) float32 array from packet_to_raw_features()
+            data: (N, 17) float32 array from _build_raw_arrays()
         Returns:
             self (for chaining)
         """
@@ -201,7 +208,7 @@ class FeatureNormalizer:
     def transform(self, x: np.ndarray) -> np.ndarray:
         """
         Apply z-score: (x − μ) / σ.
-        x can be (9,) for a single sample or (N, 9) for a batch.
+        x can be (17,) for a single sample or (N, 17) for a batch.
         Output dtype is float32.
         """
         self._require_fitted()
@@ -243,7 +250,7 @@ class FeatureNormalizer:
 def _build_raw_arrays(df) -> Tuple[np.ndarray, np.ndarray]:
     """
     Internal helper: build raw (un-normalised) feature matrices from a DataFrame.
-    Returns (raw_in, raw_out), each shape (N, 9).
+    Returns (raw_in, raw_out), each shape (N, 17).
     """
     mfcc_in_cols  = [f"mfcc_in_{i}"  for i in range(0, 13)]
     mfcc_out_cols = [f"mfcc_out_{i}" for i in range(0, 13)]
@@ -307,7 +314,7 @@ class BeehiveDataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
         """
-        Returns (x_in, x_out): both (9,) float32 tensors, z-score normalised.
+        Returns (x_in, x_out): both (17,) float32 tensors, z-score normalised.
 
         Normalisation is applied here (not in __init__) because:
         1. It avoids storing a second copy of the entire dataset.

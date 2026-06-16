@@ -3,7 +3,7 @@ IA/collect_training_data.py
 ─────────────────────────────────────────────────────────────────────────────
 Query InfluxDB and export a CSV file ready for beehive/data.py.
 
-The exported CSV contains one row per timestamp where ALL 9 features are
+The exported CSV contains one row per timestamp where ALL 17 features are
 present for BOTH sensors.  Rows with missing MFCC values are kept if you
 pass --allow-partial — they are written with 0.0 for the missing coefficients
 so you can pre-train on early data while MFCC firmware isn't deployed yet.

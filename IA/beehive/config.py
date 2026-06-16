@@ -82,14 +82,17 @@ class InferenceConfig:
 @dataclass
 class LoRaPacketConfig:
     """
-    Schema for the 31-byte LoRa payload (little-endian).
+    LEGACY FORMAT — not the active wire format.
 
-    Original spec was 29 bytes. Two extra bytes were added for dom_freq_in and
-    dom_freq_out (uint8 each, stored as Hz÷10 for 0–2550 Hz range).
-    At SF9/BW125, 31 bytes ≈ 185 ms air time — still comfortably within the 1% EU
-    868 MHz duty cycle even at the 30-second alert-burst interval (0.62% used).
+    This documents the original 31-byte LoRa payload (little-endian) that
+    carried only 5 MFCC coefficients per microphone. The live firmware now
+    uses a two-packet protocol (ENV 23 B + AUD 73 B) that carries all 13
+    MFCC coefficients; decoding of that protocol lives in lora/receiver.py.
 
-    C equivalent (for the ESP32-C6 firmware):
+    Kept here because data.py's decode_packet() / packet_to_raw_features()
+    reference it for backward-compatibility with any legacy 31-byte recordings.
+
+    C equivalent (legacy ESP32-C6 firmware):
         typedef struct __attribute__((packed)) {
             uint16_t timestamp;       // minutes since midnight
             int8_t   t_in, t_out;    // °C
@@ -98,7 +101,7 @@ class LoRaPacketConfig:
             int8_t   log_rms_out;
             uint8_t  dom_freq_in;    // Hz ÷ 10  (e.g. 45 → 450 Hz)
             uint8_t  dom_freq_out;
-            int16_t  mfcc_in[5];     // coefficients 1–5, scaled × 10
+            int16_t  mfcc_in[5];     // coefficients 1–5 only, scaled × 10
             int16_t  mfcc_out[5];
             uint8_t  anomaly_flag;   // bitmask: bit0=RMS spike, bit1=freq>450Hz, bit2=ΔT>16°C
         } lora_payload_t;            // 31 bytes

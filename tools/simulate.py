@@ -9,11 +9,12 @@ would do in production.  Now includes synthetic MFCC coefficients so the full
 
 MFCC simulation strategy
 ─────────────────────────
-The five coefficients evolve with a sinusoidal daily cycle + noise.
-Their absolute values are calibrated against published beehive MFCC ranges:
-  C1 (energy):       -30 to -15 dB   (higher = louder/busier)
-  C2 (spectral tilt): -10 to +10
-  C3–C5:               -5 to  +5
+The 13 coefficients evolve with a sinusoidal daily cycle + noise.
+Their absolute values are calibrated against real 8 kHz librosa output
+(sr=8000, fmin=50, fmax=2000, n_mfcc=13, averaged over a 3-second window):
+  C0 (energy):       -55 to -35   (inside), -60 to -40 (outside)
+  C1 (spectral tilt): -5 to +12
+  C2–C12:             -6 to  +6   (decreasing amplitude for higher coefficients)
 
 Usage:
   python simulate.py                         one beehive (id=1), every 10s
@@ -46,23 +47,24 @@ def _mfcc(phase, base_c0, noise_scale=1.0):
     """
     Generate a plausible 13-MFCC vector (indices 0–12) for one sensor channel.
 
-    base_c0 is the nominal C0 (energy) for this sensor/state — inside is typically
-    louder (base_c0 ≈ -35) than outside (base_c0 ≈ -42).  Coefficients 6–12 follow
-    the same sinusoidal pattern as 2–5 with decreasing amplitude.
+    Ranges match real 8 kHz librosa output (sr=8000, fmin=50, fmax=2000, 3 s window):
+      C0 (energy):  base_c0 ± 10 — inside base ≈ -45, outside base ≈ -50
+      C1:           -5 to +12
+      C2–C12:       -6 to +6, amplitude decreasing for higher coefficients
     """
-    c0  = base_c0 + 8.0 * math.sin(phase)        + random.gauss(0, 2.0 * noise_scale)
-    c1  =  2.0    + 2.5 * math.sin(phase + 0.5)  + random.gauss(0, 0.8 * noise_scale)
-    c2  = -1.0    + 1.0 * math.sin(phase + 1.0)  + random.gauss(0, 0.5 * noise_scale)
-    c3  =  0.5    + 0.8 * math.cos(phase)         + random.gauss(0, 0.4 * noise_scale)
-    c4  = -0.3    + 0.5 * math.cos(phase + 0.5)  + random.gauss(0, 0.3 * noise_scale)
-    c5  =  0.8    + 0.7 * math.sin(phase + 0.3)  + random.gauss(0, 0.35 * noise_scale)
-    c6  = -0.5    + 0.6 * math.sin(phase + 0.7)  + random.gauss(0, 0.3 * noise_scale)
-    c7  =  0.4    + 0.5 * math.cos(phase + 0.2)  + random.gauss(0, 0.25 * noise_scale)
-    c8  = -0.2    + 0.4 * math.cos(phase + 0.8)  + random.gauss(0, 0.2 * noise_scale)
-    c9  =  0.3    + 0.3 * math.sin(phase + 1.2)  + random.gauss(0, 0.2 * noise_scale)
-    c10 = -0.1    + 0.3 * math.sin(phase + 0.6)  + random.gauss(0, 0.15 * noise_scale)
-    c11 =  0.2    + 0.2 * math.cos(phase + 1.0)  + random.gauss(0, 0.15 * noise_scale)
-    c12 = -0.1    + 0.2 * math.cos(phase + 0.4)  + random.gauss(0, 0.1 * noise_scale)
+    c0  = base_c0 + 10.0 * math.sin(phase)        + random.gauss(0, 2.0  * noise_scale)
+    c1  =  3.5    +  8.5 * math.sin(phase + 0.5)  + random.gauss(0, 1.5  * noise_scale)
+    c2  =  0.0    +  4.0 * math.sin(phase + 1.0)  + random.gauss(0, 1.0  * noise_scale)
+    c3  =  0.0    +  3.5 * math.cos(phase)         + random.gauss(0, 0.8  * noise_scale)
+    c4  =  0.0    +  3.0 * math.cos(phase + 0.5)  + random.gauss(0, 0.7  * noise_scale)
+    c5  =  0.0    +  2.5 * math.sin(phase + 0.3)  + random.gauss(0, 0.6  * noise_scale)
+    c6  =  0.0    +  2.0 * math.sin(phase + 0.7)  + random.gauss(0, 0.5  * noise_scale)
+    c7  =  0.0    +  1.8 * math.cos(phase + 0.2)  + random.gauss(0, 0.45 * noise_scale)
+    c8  =  0.0    +  1.5 * math.cos(phase + 0.8)  + random.gauss(0, 0.4  * noise_scale)
+    c9  =  0.0    +  1.2 * math.sin(phase + 1.2)  + random.gauss(0, 0.35 * noise_scale)
+    c10 =  0.0    +  1.0 * math.sin(phase + 0.6)  + random.gauss(0, 0.3  * noise_scale)
+    c11 =  0.0    +  0.8 * math.cos(phase + 1.0)  + random.gauss(0, 0.25 * noise_scale)
+    c12 =  0.0    +  0.6 * math.cos(phase + 0.4)  + random.gauss(0, 0.2  * noise_scale)
     return [round(x, 3) for x in [c0, c1, c2, c3, c4, c5, c6, c7, c8, c9, c10, c11, c12]]
 
 
@@ -113,10 +115,10 @@ def simulate_reading(beehive_id: int, when: datetime,
     }
 
     if include_mfcc:
-        # Inside is noisier (bees, brood) → higher base energy (C0 ≈ -35)
-        # Outside is quieter             → lower base energy  (C0 ≈ -42)
-        payload["mfcc_int"] = _mfcc(phase, base_c0=-35.0)
-        payload["mfcc_ext"] = _mfcc(phase, base_c0=-42.0, noise_scale=0.7)
+        # Inside (bees, brood) → higher base energy (C0 ≈ -45)
+        # Outside              → lower base energy  (C0 ≈ -50)
+        payload["mfcc_int"] = _mfcc(phase, base_c0=-45.0)
+        payload["mfcc_ext"] = _mfcc(phase, base_c0=-50.0, noise_scale=0.7)
 
     if overrides:
         for key, val in overrides.items():

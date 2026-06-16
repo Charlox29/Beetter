@@ -67,7 +67,7 @@ public:
                                     uint8_t nbCoeffs = 13);
 
     /**
-     * Analyse le canal extérieur (droit).
+     * Analyse le canal extérieur (gauche, J2, SEL=GND).
      * Mêmes paramètres qu'analyserInterieur.
      */
     ResultatAudio analyserExterieur(uint32_t dureeCaptureMs,
@@ -82,6 +82,7 @@ public:
 
 private:
     I2SClass  _i2s;
+    uint8_t   _bclk = 0, _ws = 0, _din = 0;  // mémorisés pour réinit I2S
     uint32_t  _fs   = 8000;
     bool      _pret = false;
 

@@ -56,7 +56,7 @@
 #define MIC_INT_SAMPLE_RATE_HZ     8000
 #define MIC_INT_FREQ_MIN_HZ        50
 #define MIC_INT_FREQ_MAX_HZ        2000
-#define MIC_INT_CAPTURE_MS         3000   // 3s = 94KB malloc
+#define MIC_INT_CAPTURE_MS         3000   // 3s @ 8kHz = 24000 samples (buffer statique 94KB)
 
 // ─── MICROPHONE EXTÉRIEUR (canal GAUCHE – J2, SEL=GND) ───────
 #define MIC_EXT_SAMPLE_RATE_HZ     8000
@@ -88,8 +88,8 @@
 #define SD_LOG_MFCC_EXT "/mfcc_ext.csv"
 
 // ─── WIFI ────────────────────────────────────────────────────
-#define WIFI_SSID      "VotreSSID"
-#define WIFI_PASSWORD  "VotreMotDePasse"
+#define WIFI_SSID      "BeetterProject"
+#define WIFI_PASSWORD  "beettergratuit"
 #define NTP_SERVER     "pool.ntp.org"
 #define NTP_GMT_OFFSET_SEC    0      // UTC – le RTC stocke toujours UTC
 #define NTP_DST_OFFSET_SEC    0
@@ -100,6 +100,24 @@
 // ─── FUSEAU HORAIRE DE COMPILATION ───────────────────────────
 // Décalage en secondes entre l'heure locale de la machine qui compile
 // et UTC. Utilisé pour corriger reglerDepuisCompilation().
-// France heure d'hiver : 3600 (UTC+1)
-// France heure d'été   : 7200 (UTC+2)
-#define UTC_OFFSET_SEC  3600
+// France heure d'hiver (oct→mars) : 3600 (UTC+1)
+// France heure d'été   (mar→oct) : 7200 (UTC+2)
+// ⚠️  Mettre à jour lors des changements d'heure
+#define UTC_OFFSET_SEC  7200   // juin 2026 = heure d'été (UTC+2)
+
+// ─── ENREGISTREMENT WAV ───────────────────────────────────────
+// Clip stéréo (INT=R, EXT=L) enregistré tous les WAV_EVERY_CYCLES cycles
+// pendant l'attente du duty cycle (non bloquant pour les mesures)
+//
+// Consommation SD : 0.46 MB/clip × 144 clips/jour = 66 MB/jour → 249 jours sur 16 Go
+#define WAV_EVERY_CYCLES   20     // 1 clip toutes les 10 min (20 × 30s)
+#define WAV_DUREE_SEC      15     // durée du clip en secondes
+
+// ─── GAIN WAV ─────────────────────────────────────────────────
+// Atténuation logicielle pour éviter la saturation des ICS-43434.
+// Chaque incrément divise l'amplitude par 2 (-6 dB).
+// 0 = aucune atténuation (risque de saturation en milieu bruité)
+// 1 = -6 dB  (atténuation légère)
+// 2 = -12 dB (recommandé pour ruche)
+// 3 = -18 dB (environnement très bruyant)
+#define WAV_GAIN_SHIFT  3

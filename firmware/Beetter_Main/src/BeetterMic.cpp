@@ -24,6 +24,7 @@ uint32_t BeetterMic::_captureBufSize = 24000;
 
 // ─── Initialisation I2S ──────────────────────────────────────
 bool BeetterMic::begin(uint8_t bclk, uint8_t ws, uint8_t din, uint32_t fs) {
+    _bclk = bclk; _ws = ws; _din = din;  // mémorisés pour réinit après WAV
     _fs   = fs;
     _pret = false;
 
@@ -48,6 +49,13 @@ uint32_t BeetterMic::getSampleRate() const { return _fs; }
 
 // ─── Capture d'un canal ──────────────────────────────────────
 void BeetterMic::_capturer(uint8_t canal, uint32_t n, int32_t* out) {
+    // Réinitialiser le bus I2S avant chaque capture
+    // Nécessaire si le bus a été utilisé par BeetterWAV entre deux cycles
+    _i2s.end();
+    delay(50);
+    _i2s.setPins(_bclk, _ws, -1, _din, -1);
+    _i2s.begin(I2S_MODE_STD, (int)_fs, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
+
     // Le bus I2S retourne des paires (gauche, droit) dans le même buffer.
     // On lit par blocs de 64 paires pour ne pas saturer la stack.
     const uint32_t BLOC = 64;

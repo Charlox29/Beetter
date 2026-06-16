@@ -16,7 +16,7 @@
  *  - CSV : snprintf() statique, pas de String dynamique
  *  - seqLoRa : uint32_t (pas d'overflow à 65535 cycles)
  *  - WiFi : déconnecté après sync NTP (~40 mA économisés)
- *  - delay(100) et log heap supprimés (buffer statique, plus nécessaires)
+ *  - Buffer capture statique 94KB (plus de malloc → plus de fragmentation heap)
  * =============================================================
  */
 
@@ -28,6 +28,7 @@
 #include "src/BeetterLoRa.h"
 #include "src/BeetterPhoto.h"
 #include "src/BeetterWifi.h"
+#include "src/BeetterWAV.h"
 
 BeetterSD     sd;
 BeetterSHT40  sht;
@@ -36,6 +37,7 @@ BeetterRTC    rtc;
 BeetterLoRa   lora;
 BeetterPhoto  photo;
 BeetterWifi   wifi;
+BeetterWAV    wav;
 
 bool     sdPrete = false;
 uint32_t seqLoRa = 0;   // uint32 : pas d'overflow avant ~4 milliards de cycles
@@ -75,7 +77,8 @@ void setup() {
 
     photo.begin(PHOTO_PIN, 12, 4);
 
-    // WiFi uniquement pour la sync NTP, déconnecté ensuite (fix 7)
+    // WiFi utilisé uniquement pour la sync NTP au démarrage
+    // Déconnecté ensuite pour économiser ~40 mA en continu
     bool wifiOk = wifi.connecter(WIFI_SSID, WIFI_PASSWORD, 15, 500);
     if (wifiOk && rtc.isReady()) {
         rtc.syncNTP(NTP_SERVER, NTP_GMT_OFFSET_SEC, NTP_DST_OFFSET_SEC);
@@ -83,10 +86,14 @@ void setup() {
         Serial.println(F("[WiFi] Deconnecte apres sync NTP."));
     }
 
-    wifi.demarrerBLE(BT_DEVICE_NAME);
+    // BLE désactivé – économie mémoire et consommation (~15 mA)
+    // Réactiver si nécessaire : wifi.demarrerBLE(BT_DEVICE_NAME);
 
     if (!lora.begin(LORA_RX_PIN, LORA_TX_PIN, LORA_FREQ))
         Serial.println(F("[WARN] Module LoRa non disponible."));
+
+    // WAV : dossier /wav/ créé si nécessaire
+    if (sdPrete) wav.begin(I2S_BCLK, I2S_WS, I2S_DIN, MIC_INT_SAMPLE_RATE_HZ);
 
     Serial.println(F("\n[BEETTER] Debut des cycles.\n"));
     neopixelWrite(LED_RGB_PIN, 0, 50, 0);
@@ -202,15 +209,7 @@ void loop() {
             audioExt.mfcc, audioExt.nbCoeffsMFCC
         );
 
-        if (wifi.clientBLEConnecte()) {
-            snprintf(_csvBuf, sizeof(_csvBuf),
-                     "B:%s #%lu T:%.1f/%.1f L:%.1f F:%.0f/%.0f",
-                     BEETTER_HIVE_ID, (unsigned long)seqLoRa,
-                     mesureInt.temperatureC, mesureExt.temperatureC,
-                     lumIndice,
-                     audioInt.freqDominante, audioExt.freqDominante);
-            wifi.envoyerBLE(String(_csvBuf));
-        }
+        // BLE désactivé
     }
 
     // ── 7. Attente duty cycle ─────────────────────────────────
@@ -218,7 +217,16 @@ void loop() {
     long resteMs = (long)CYCLE_INTERVAL_MS - (long)dureeCycle;
     Serial.printf("[CYCLE] Duree: %lu ms | Attente: %ld ms\n",
                   dureeCycle, max(resteMs, 0L));
-    if (resteMs > 0) delay((unsigned long)resteMs);
+    // Enregistrement WAV tous les WAV_EVERY_CYCLES cycles
+    // Effectué pendant l'attente pour ne pas retarder les mesures
+    if (sdPrete && resteMs > (WAV_DUREE_SEC * 1000L + 200L)) {
+        wav.enregistrerSiNecessaire(seqLoRa, rtc);
+    }
+
+    // Attendre le reste du cycle
+    unsigned long elapsed = millis() - debutCycle;
+    long resteMs2 = (long)CYCLE_INTERVAL_MS - (long)elapsed;
+    if (resteMs2 > 0) delay((unsigned long)resteMs2);
 }
 
 // ════════════════════════════════════════════════════════════

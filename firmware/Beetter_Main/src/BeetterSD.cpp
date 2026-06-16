@@ -42,6 +42,14 @@ uint64_t BeetterSD::espaceUtilise()       { return _pret ? SD.usedBytes()  : 0; 
 // ─── Gestion de cycle ────────────────────────────────────────
 bool BeetterSD::beginCycle() {
     if (!_pret || _cycleOuvert) return false;
+
+    // Vérifier que la carte est toujours présente (retrait à chaud)
+    if (!cartePresente()) {
+        Serial.println(F("[SD] Carte absente – cycle SD ignore."));
+        _pret = false;   // désactiver jusqu'au prochain redémarrage
+        return false;
+    }
+
     _fEnv     = SD.open(SD_LOG_ENV,      FILE_APPEND);
     _fMfccInt = SD.open(SD_LOG_MFCC_INT, FILE_APPEND);
     _fMfccExt = SD.open(SD_LOG_MFCC_EXT, FILE_APPEND);

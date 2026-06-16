@@ -40,9 +40,11 @@
 #define SIZE_ENV     23
 #define SIZE_AUD     73
 
-// Duty cycle ETSI 868 MHz (ToA mesuré ~176ms)
-#define LORA_TOA_MS            180UL
-#define LORA_INTERVALLE_MIN_MS (LORA_TOA_MS * 99UL)  // ~17820ms
+// Duty cycle ETSI 868 MHz – sous-bande g1 (1% max)
+// ToA mesuré : ~176ms (overhead UART Grove ATmega168 inclus)
+// DC pratique : 180ms / 30000ms = 0.60% ✓ (bien en dessous du 1%)
+#define LORA_TOA_MS            180UL              // ms, ToA mesuré terrain
+#define LORA_INTERVALLE_MIN_MS (LORA_TOA_MS * 99UL)  // 17820ms – garde-fou légal
 
 #pragma pack(push, 1)
 struct BlocENV {

@@ -96,7 +96,7 @@ def simulate_reading(beehive_id: int, when: datetime,
         light = 9.5 if (point_idx // 10) % 2 == 0 else 0.2
         light += random.gauss(0, 0.1)
     else:
-        light = max(0.0, min(10.0, 10.0 * math.sin(math.pi * hour / 24) + random.gauss(0, 0.3)))
+        light = max(0.0, min(4.0, random.gauss(1.5, 0.5)))
 
     light = max(0.0, min(10.0, round(light, 1)))
 

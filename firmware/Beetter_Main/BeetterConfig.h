@@ -121,3 +121,10 @@
 // 2 = -12 dB (recommandé pour ruche)
 // 3 = -18 dB (environnement très bruyant)
 #define WAV_GAIN_SHIFT  3
+
+// ─── WATCHDOG ─────────────────────────────────────────────────
+// Redémarre automatiquement si le programme se bloque (bug I2S, SD, etc.)
+// Doit être > durée d'un cycle complet avec WAV :
+//   ~9.5s mesures + 15s WAV + marge = 30s minimum
+// On prend 60s pour être à l'aise.
+#define WDT_TIMEOUT_SEC   60

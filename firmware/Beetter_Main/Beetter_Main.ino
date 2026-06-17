@@ -21,6 +21,7 @@
  */
 
 #include "BeetterConfig.h"
+#include "esp_task_wdt.h"   // Watchdog matériel ESP32
 #include "src/BeetterSD.h"
 #include "src/BeetterSHT40.h"
 #include "src/BeetterMic.h"
@@ -55,6 +56,13 @@ void setup() {
     Serial.begin(115200);
     delay(500);
     neopixelWrite(LED_RGB_PIN, 0, 0, 0);
+
+    // Watchdog : redémarre automatiquement si le programme se bloque > WDT_TIMEOUT_SEC
+    esp_task_wdt_config_t wdt_cfg = { .timeout_ms = WDT_TIMEOUT_SEC * 1000,
+                                      .idle_core_mask = 0, .trigger_panic = true };
+    esp_task_wdt_reconfigure(&wdt_cfg);
+    esp_task_wdt_add(NULL);  // surveiller la tâche courante (loop)
+    Serial.printf("[WDT] Watchdog actif – timeout %ds\n", WDT_TIMEOUT_SEC);
 
     Serial.println(F("\n╔════════════════════════════════╗"));
     Serial.println(F("║    BEETTER HIVE – Démarrage    ║"));
@@ -103,6 +111,7 @@ void setup() {
 
 // ════════════════════════════════════════════════════════════
 void loop() {
+    esp_task_wdt_reset();  // Signaler que le programme est vivant
     unsigned long debutCycle = millis();
     seqLoRa++;
     Serial.printf("\n══ Cycle #%lu ══\n", (unsigned long)seqLoRa);
@@ -196,7 +205,13 @@ void loop() {
 
     // ── 6. Envoi LoRa ────────────────────────────────────────
     if (lora.isReady()) {
-        uint32_t ts = rtc.isReady() ? rtc.timestamp() : (uint32_t)(millis() / 1000);
+        uint32_t ts;
+        if (rtc.isReady()) {
+            ts = rtc.timestamp();
+        } else {
+            ts = (uint32_t)(millis() / 1000);
+            Serial.println(F("[WARN] RTC non pret – timestamp approximatif (millis)."));
+        }
 
         lora.envoyerTrame(
             BEETTER_HIVE_ID, ts, seqLoRa,
@@ -208,8 +223,8 @@ void loop() {
             audioExt.freqDominante, audioExt.energieRMS,
             audioExt.mfcc, audioExt.nbCoeffsMFCC
         );
-
-        // BLE désactivé
+    } else {
+        Serial.println(F("[LoRa] Module absent – trame ignoree ce cycle."));
     }
 
     // ── 7. Attente duty cycle ─────────────────────────────────
@@ -221,6 +236,9 @@ void loop() {
     // Effectué pendant l'attente pour ne pas retarder les mesures
     if (sdPrete && resteMs > (WAV_DUREE_SEC * 1000L + 200L)) {
         wav.enregistrerSiNecessaire(seqLoRa, rtc);
+        // Signaler au mic que le bus I2S a été utilisé par WAV
+        // → réinit conditionnelle à la prochaine capture (évite delay inutile sinon)
+        mic.marquerI2SUtiliseParWAV();
     }
 
     // Attendre le reste du cycle

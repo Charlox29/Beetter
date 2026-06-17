@@ -4,30 +4,30 @@
  * =============================================================
  *  2 blocs par trame, magics distincts, tailles fixes :
  *
- *  BLOC ENV – magic 0xE0 – 23 bytes
+ *  BLOC ENV – magic 0xE0 – 25 bytes
  *  offset  0 : uint8   magic = 0xE0
- *  offset  1 : uint16  seq
- *  offset  3 : char[4] hive_id
- *  offset  7 : uint32  timestamp (Unix UTC)
- *  offset 11 : int16   temp_int  (°C × 100)
- *  offset 13 : uint16  hum_int   (%RH × 10)
- *  offset 15 : int16   temp_ext  (°C × 100)
- *  offset 17 : uint16  hum_ext   (%RH × 10)
- *  offset 19 : uint16  light_ext (indice × 10, ex. 69 → 6.9/10)
- *  offset 21 : uint16  crc16
+ *  offset  1 : uint32  seq         (étendu à 32 bits – pas d'overflow avant ~4 milliards)
+ *  offset  5 : char[4] hive_id
+ *  offset  9 : uint32  timestamp (Unix UTC)
+ *  offset 13 : int16   temp_int  (°C × 100)
+ *  offset 15 : uint16  hum_int   (%RH × 10)
+ *  offset 17 : int16   temp_ext  (°C × 100)
+ *  offset 19 : uint16  hum_ext   (%RH × 10)
+ *  offset 21 : uint16  light_ext (indice × 10, ex. 69 → 6.9/10)
+ *  offset 23 : uint16  crc16
  *
- *  BLOC AUD – magic 0xA0 – 73 bytes
+ *  BLOC AUD – magic 0xA0 – 75 bytes
  *  offset  0 : uint8   magic = 0xA0
- *  offset  1 : uint16  seq
- *  offset  3 : char[4] hive_id
- *  offset  7 : uint32  timestamp
- *  offset 11 : uint16  freq_int  (Hz × 10)
- *  offset 13 : uint16  rms_int   (× 10000)
- *  offset 15 : uint16  freq_ext  (Hz × 10)
- *  offset 17 : uint16  rms_ext   (× 10000)
- *  offset 19 : int16[13] mfcc_int (× 100)
- *  offset 45 : int16[13] mfcc_ext (× 100)
- *  offset 71 : uint16  crc16
+ *  offset  1 : uint32  seq         (étendu à 32 bits)
+ *  offset  5 : char[4] hive_id
+ *  offset  9 : uint32  timestamp
+ *  offset 13 : uint16  freq_int  (Hz × 10)
+ *  offset 15 : uint16  rms_int   (× 10000)
+ *  offset 17 : uint16  freq_ext  (Hz × 10)
+ *  offset 19 : uint16  rms_ext   (× 10000)
+ *  offset 21 : int16[13] mfcc_int (MFCC0 × 10 ; MFCC1..12 × 1000)
+ *  offset 47 : int16[13] mfcc_ext (MFCC0 × 10 ; MFCC1..12 × 1000)
+ *  offset 73 : uint16  crc16
  * =============================================================
  */
 
@@ -37,8 +37,8 @@
 
 #define MAGIC_ENV    0xE0
 #define MAGIC_AUD    0xA0
-#define SIZE_ENV     23
-#define SIZE_AUD     73
+#define SIZE_ENV     25   // +2 bytes : seq uint16 → uint32
+#define SIZE_AUD     75   // +2 bytes : seq uint16 → uint32
 
 // Duty cycle ETSI 868 MHz – sous-bande g1 (1% max)
 // ToA mesuré : ~176ms (overhead UART Grove ATmega168 inclus)
@@ -49,7 +49,7 @@
 #pragma pack(push, 1)
 struct BlocENV {
     uint8_t  magic;
-    uint16_t seq;
+    uint32_t seq;          // uint32 – pas d'overflow avant ~4 milliards de cycles
     char     hiveId[4];
     uint32_t timestamp;
     int16_t  tempInt;      // °C × 100
@@ -62,15 +62,15 @@ struct BlocENV {
 
 struct BlocAUD {
     uint8_t  magic;
-    uint16_t seq;
+    uint32_t seq;          // uint32 – aligné avec BlocENV
     char     hiveId[4];
     uint32_t timestamp;
     uint16_t freqInt;      // Hz × 10
     uint16_t rmsInt;       // × 10000
     uint16_t freqExt;      // Hz × 10
     uint16_t rmsExt;       // × 10000
-    int16_t  mfccInt[13];  // × 100
-    int16_t  mfccExt[13];  // × 100
+    int16_t  mfccInt[13];  // MFCC0 × 10 (résol. 0.1) ; MFCC1..12 × 1000 (résol. 0.001)
+    int16_t  mfccExt[13];  // MFCC0 × 10 (résol. 0.1) ; MFCC1..12 × 1000 (résol. 0.001)
     uint16_t crc16;
 };
 #pragma pack(pop)
@@ -109,6 +109,6 @@ private:
     static HardwareSerial          _ss;
     static RH_RF95<HardwareSerial> _radio;
 
-    bool _envoyer(const uint8_t* buf, uint8_t len, const char* label);
+    bool _envoyer(const uint8_t* buf, uint8_t len, const char* label, uint32_t ts);
     void _comptabiliser(uint32_t dureeMs);
 };

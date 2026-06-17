@@ -22,6 +22,13 @@
 int32_t  BeetterMic::_captureBuf[24000];
 uint32_t BeetterMic::_captureBufSize = 24000;
 
+// Buffers statiques pour _calculerMFCC – remplacent les alloca() à risque stack overflow
+// nbFiltres + 2 = 28 points pour MFCC_NUM_FILTERS=26
+float  BeetterMic::_melPoints[28];
+float  BeetterMic::_hzPoints[28];
+int    BeetterMic::_binPoints[28];
+double BeetterMic::_energieFiltres[26];
+
 // ─── Initialisation I2S ──────────────────────────────────────
 bool BeetterMic::begin(uint8_t bclk, uint8_t ws, uint8_t din, uint32_t fs) {
     _bclk = bclk; _ws = ws; _din = din;  // mémorisés pour réinit après WAV
@@ -47,14 +54,21 @@ bool BeetterMic::begin(uint8_t bclk, uint8_t ws, uint8_t din, uint32_t fs) {
 bool    BeetterMic::isReady()      const { return _pret; }
 uint32_t BeetterMic::getSampleRate() const { return _fs; }
 
+void BeetterMic::marquerI2SUtiliseParWAV() {
+    _needReinit = true;
+}
+
 // ─── Capture d'un canal ──────────────────────────────────────
 void BeetterMic::_capturer(uint8_t canal, uint32_t n, int32_t* out) {
-    // Réinitialiser le bus I2S avant chaque capture
-    // Nécessaire si le bus a été utilisé par BeetterWAV entre deux cycles
-    _i2s.end();
-    delay(50);
-    _i2s.setPins(_bclk, _ws, -1, _din, -1);
-    _i2s.begin(I2S_MODE_STD, (int)_fs, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
+    // Réinitialiser le bus I2S uniquement si BeetterWAV l'a utilisé
+    // (évite un delay(50) inutile × 2 captures par cycle = ~100ms perdus)
+    if (_needReinit) {
+        _i2s.end();
+        delay(50);
+        _i2s.setPins(_bclk, _ws, -1, _din, -1);
+        _i2s.begin(I2S_MODE_STD, (int)_fs, I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO);
+        _needReinit = false;
+    }
 
     // Le bus I2S retourne des paires (gauche, droit) dans le même buffer.
     // On lit par blocs de 64 paires pour ne pas saturer la stack.
@@ -209,24 +223,22 @@ void BeetterMic::_calculerMFCC(const double* magnitude, uint32_t n,
     // Points centraux des filtres uniformément espacés en Mel
     // nbFiltres + 2 points pour inclure les bords
     int nPoints = nbFiltres + 2;
-    float* melPoints = (float*)alloca(nPoints * sizeof(float));
-    float* hzPoints  = (float*)alloca(nPoints * sizeof(float));
-    int*   binPoints = (int*)alloca(nPoints * sizeof(int));
+    // Utilisation des membres statiques – pas d'alloca(), pas de risque stack overflow
+    // Dimensionnés pour MFCC_NUM_FILTERS=26 → nPoints=28 au maximum
 
     for (int i = 0; i < nPoints; i++) {
-        melPoints[i] = melMin + i * (melMax - melMin) / (nPoints - 1);
-        hzPoints[i]  = _melToHz(melPoints[i]);
-        binPoints[i] = (int)(hzPoints[i] / df);
-        if (binPoints[i] >= (int)n) binPoints[i] = (int)n - 1;
+        _melPoints[i] = melMin + i * (melMax - melMin) / (nPoints - 1);
+        _hzPoints[i]  = _melToHz(_melPoints[i]);
+        _binPoints[i] = (int)(_hzPoints[i] / df);
+        if (_binPoints[i] >= (int)n) _binPoints[i] = (int)n - 1;
     }
 
     // ── Énergie de chaque filtre triangulaire ──
-    double* energieFiltres = (double*)alloca(nbFiltres * sizeof(double));
 
     for (int m = 0; m < nbFiltres; m++) {
-        int   fL = binPoints[m];      // borne gauche
-        int   fC = binPoints[m + 1];  // centre
-        int   fR = binPoints[m + 2];  // borne droite
+        int   fL = _binPoints[m];      // borne gauche
+        int   fC = _binPoints[m + 1];  // centre
+        int   fR = _binPoints[m + 2];  // borne droite
 
         double energie = 0;
         // Montée gauche → centre
@@ -240,14 +252,14 @@ void BeetterMic::_calculerMFCC(const double* magnitude, uint32_t n,
             energie += magnitude[k] * poids;
         }
         // Log pour comprimer la dynamique (mimique l'oreille humaine)
-        energieFiltres[m] = log(max(energie, 1e-10));
+        _energieFiltres[m] = log(max(energie, 1e-10));
     }
 
     // ── DCT-II pour obtenir les coefficients MFCC ──
     for (int c = 0; c < nbCoeffs; c++) {
         double somme = 0;
         for (int m = 0; m < nbFiltres; m++) {
-            somme += energieFiltres[m] * cos(M_PI * c * (2 * m + 1) / (2.0 * nbFiltres));
+            somme += _energieFiltres[m] * cos(M_PI * c * (2 * m + 1) / (2.0 * nbFiltres));
         }
         mfccOut[c] = (float)somme;
     }

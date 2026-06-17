@@ -58,13 +58,20 @@ uint16_t BeetterLoRa::crc16(const uint8_t* data, size_t len) {
     return crc;
 }
 
-bool BeetterLoRa::_envoyer(const uint8_t* buf, uint8_t len, const char* label) {
+bool BeetterLoRa::_envoyer(const uint8_t* buf, uint8_t len, const char* label, uint32_t ts) {
     uint32_t attente = tempsAvantProchainEnvoi();
     if (attente > 0) {
         Serial.printf("[LoRa] DC – %s refusé, attendre %lu s\n", label, attente/1000);
         return false;
     }
-    Serial.printf("[LoRa] %s (%d bytes)\n", label, len);
+
+    // Formater l'heure UTC depuis le timestamp Unix
+    time_t t = (time_t)ts;
+    struct tm* tmInfo = gmtime(&t);
+    char heure[9];  // "HH:MM:SS\0"
+    strftime(heure, sizeof(heure), "%H:%M:%S", tmInfo);
+
+    Serial.printf("[LoRa] %s (%d bytes) @ %s UTC\n", label, len, heure);
     unsigned long debut = millis();
 
     // ── LED bleue ON pendant l'émission ──
@@ -97,7 +104,7 @@ bool BeetterLoRa::envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
     // ── Bloc ENV ──
     BlocENV env;
     env.magic    = MAGIC_ENV;
-    env.seq      = (uint16_t)(seq & 0xFFFF);  // tronqué proprement pour la trame
+    env.seq      = seq;   // uint32 – pas de troncature, pas d'overflow
     memset(env.hiveId, 0, 4); strncpy(env.hiveId, hiveId, 4);
     env.timestamp = ts;
     env.tempInt   = (int16_t)(tempInt * 100);
@@ -110,16 +117,31 @@ bool BeetterLoRa::envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
     // ── Bloc AUD ──
     BlocAUD aud;
     aud.magic    = MAGIC_AUD;
-    aud.seq      = (uint16_t)(seq & 0xFFFF);
+    aud.seq      = seq;   // uint32 – aligné avec BlocENV
     memset(aud.hiveId, 0, 4); strncpy(aud.hiveId, hiveId, 4);
     aud.timestamp = ts;
     aud.freqInt   = (uint16_t)(freqInt * 10);
     aud.rmsInt    = (uint16_t)(rmsInt  * 10000);
     aud.freqExt   = (uint16_t)(freqExt * 10);
     aud.rmsExt    = (uint16_t)(rmsExt  * 10000);
+    // Encodage MFCC différencié pour maximiser la précision utile :
+    //   MFCC0      × 10   → résolution 0.1  (énergie globale, amplitude ≈ ±50)
+    //   MFCC1..12  × 1000 → résolution 0.001 (coefficients spectraux, amplitude ≈ ±20)
+    // Clamp avant cast pour éviter tout overflow int16 si un coeff sort des plages nominales.
     for (int i = 0; i < 13; i++) {
-        aud.mfccInt[i] = (i < nbMfccInt) ? (int16_t)(mfccInt[i] * 100) : 0;
-        aud.mfccExt[i] = (i < nbMfccExt) ? (int16_t)(mfccExt[i] * 100) : 0;
+        if (i == 0) {
+            // MFCC0 × 10 — plage couverte : ±3276.7
+            float v = (i < nbMfccInt) ? mfccInt[i] * 10.0f : 0.0f;
+            aud.mfccInt[i] = (int16_t)constrain(v, -32000.0f, 32000.0f);
+            v = (i < nbMfccExt) ? mfccExt[i] * 10.0f : 0.0f;
+            aud.mfccExt[i] = (int16_t)constrain(v, -32000.0f, 32000.0f);
+        } else {
+            // MFCC1..12 × 1000 — plage couverte : ±32.0 (clamp à ±32.0 avant scale)
+            float v = (i < nbMfccInt) ? mfccInt[i] * 1000.0f : 0.0f;
+            aud.mfccInt[i] = (int16_t)constrain(v, -32000.0f, 32000.0f);
+            v = (i < nbMfccExt) ? mfccExt[i] * 1000.0f : 0.0f;
+            aud.mfccExt[i] = (int16_t)constrain(v, -32000.0f, 32000.0f);
+        }
     }
     aud.crc16 = crc16((uint8_t*)&aud, SIZE_AUD - 2);
 
@@ -128,5 +150,5 @@ bool BeetterLoRa::envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
     memcpy(buf,           &env, SIZE_ENV);
     memcpy(buf + SIZE_ENV, &aud, SIZE_AUD);
 
-    return _envoyer(buf, SIZE_ENV + SIZE_AUD, "ENV+AUD");
+    return _envoyer(buf, SIZE_ENV + SIZE_AUD, "ENV+AUD", ts);
 }

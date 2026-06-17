@@ -8,10 +8,10 @@ et le récepteur Python pour **Beetter Home** (Raspberry Pi).
 ## Structure du projet
 
 ```
-Beetter/
+firmware/
 ├── Beetter_Main/
 │   ├── Beetter_Main.ino     ← Programme principal (ouvrir dans Arduino IDE)
-│   ├── BeetterConfig.h      ← ⭐ FICHIER À ÉDITER en premier
+│   ├── BeetterConfig.h      ← FICHIER À ÉDITER en premier
 │   └── src/                 ← Bibliothèques locales (même dossier que .ino)
 │       ├── BeetterLoRa.cpp/.h    Transmission LoRa binaire (Grove RFM95)
 │       ├── BeetterMic.cpp/.h     Microphones I2S + FFT + MFCC
@@ -21,10 +21,11 @@ Beetter/
 │       ├── BeetterSHT40.cpp/.h   Capteurs T°/Humidité (×2)
 │       ├── BeetterWAV.cpp/.h     Enregistrement audio WAV
 │       └── BeetterWifi.h         WiFi + Bluetooth LE
-├── grove_lora.py            ← Driver bas niveau Grove (requis par receiver.py)
-├── receiver.py              ← Récepteur LoRa côté Beetter Home (Pi)
 └── README.md
 ```
+
+Les fichiers Python (`receiver.py`, `grove_lora.py`) sont distribués séparément
+pour le Beetter Home (Raspberry Pi).
 
 ---
 
@@ -100,9 +101,11 @@ URL boards manager :
 │  3. MFCC intérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  4. MFCC extérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  5. Écriture SD           ~15 ms   3 fichiers CSV (1 ouverture) │
-│  6. Envoi LoRa           ~176 ms   ENV+AUD 96 bytes, DC 0.60%  │
+│  6. Envoi LoRa           ~176 ms   ENV+AUD 100 bytes, DC 0.60%  │
 │  7. [WAV si cycle×20]  ~15 000 ms   clip stéréo 15s sur SD     │
 │  8. Attente               reste    jusqu'à t=30s depuis début   │
+│                                                                  │
+│  Watchdog matériel (60s) : redémarre si programme bloqué        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -128,7 +131,7 @@ Pas de `while(!Serial)` — aucune dépendance au moniteur série.
 
 ```
 Capture I2S (3s × 8000 Hz = 24 000 samples, buffer statique 94 KB)
-        ↓  réinitialisation I2S avant chaque capture (stabilité bus)
+        ↓  réinitialisation I2S conditionnelle (uniquement si BeetterWAV a utilisé le bus)
   ┌──────────────────────────────────────────────┐
   │  11 fenêtres × 2048 samples (256 ms chacune) │
   │  Pour chaque fenêtre :                        │
@@ -152,6 +155,7 @@ Le fenêtrage + moyennage est **identique au comportement par défaut de `libros
 |---|---|---|
 | `_captureBuf[24000]` | 94 KB | Statique global — alloué au démarrage |
 | `_vReal[2048]` + `_vImag[2048]` | 32 KB | Statique membre — réutilisés par fenêtre |
+| `_melPoints[28]` + `_hzPoints[28]` + `_binPoints[28]` + `_energieFiltres[26]` | ~400 bytes | Statique membre — remplacent les `alloca()` |
 | Accumulateurs moyennage | ~120 bytes | Stack — négligeable |
 
 Les micros INT et EXT partagent `_captureBuf` séquentiellement : INT capturé → analysé → buffer écrasé par EXT. **48 000 samples capturés par cycle, 94 KB en mémoire.**
@@ -214,39 +218,39 @@ L'indice est **logarithmique** pour refléter la perception humaine. Table de co
 
 ## Protocole LoRa – Blocs binaires
 
-Une trame = 2 blocs concaténés = **96 bytes**, toutes les 30s.
+Une trame = 2 blocs concaténés = **100 bytes**, toutes les 30s.
 DC pratique : 176ms / 30 000ms = **0.60%** ✓ (limite ETSI 868 MHz = 1%)
 
-### BLOC ENV – `0xE0` – 23 bytes
+### BLOC ENV – `0xE0` – 25 bytes
 
 | Offset | Bytes | Champ | Encodage |
 |---|---|---|---|
 | 0 | 1 | magic | `0xE0` |
-| 1 | 2 | seq | uint16 (tronqué depuis uint32) |
-| 3 | 4 | hive_id | `"B001"` ASCII |
-| 7 | 4 | timestamp | uint32 Unix UTC |
-| 11 | 2 | temp_int | int16 = °C × 100 |
-| 13 | 2 | hum_int | uint16 = %RH × 10 |
-| 15 | 2 | temp_ext | int16 = °C × 100 |
-| 17 | 2 | hum_ext | uint16 = %RH × 10 |
-| 19 | 2 | light_ext | uint16 = indice × 10 (ex. 50 → 5.0/10) |
-| 21 | 2 | crc16 | CRC-16/CCITT (poly 0x1021, init 0xFFFF) |
+| 1 | 4 | seq | uint32 (pas d'overflow avant ~4 milliards de cycles) |
+| 5 | 4 | hive_id | `"B001"` ASCII |
+| 9 | 4 | timestamp | uint32 Unix UTC |
+| 13 | 2 | temp_int | int16 = °C × 100 |
+| 15 | 2 | hum_int | uint16 = %RH × 10 |
+| 17 | 2 | temp_ext | int16 = °C × 100 |
+| 19 | 2 | hum_ext | uint16 = %RH × 10 |
+| 21 | 2 | light_ext | uint16 = indice × 10 (ex. 50 → 5.0/10) |
+| 23 | 2 | crc16 | CRC-16/CCITT (poly 0x1021, init 0xFFFF) |
 
-### BLOC AUD – `0xA0` – 73 bytes
+### BLOC AUD – `0xA0` – 75 bytes
 
 | Offset | Bytes | Champ | Encodage |
 |---|---|---|---|
 | 0 | 1 | magic | `0xA0` |
-| 1 | 2 | seq | uint16 |
-| 3 | 4 | hive_id | `"B001"` ASCII |
-| 7 | 4 | timestamp | uint32 Unix UTC |
-| 11 | 2 | freq_int | uint16 = Hz × 10 |
-| 13 | 2 | rms_int | uint16 = RMS × 10 000 |
-| 15 | 2 | freq_ext | uint16 = Hz × 10 |
-| 17 | 2 | rms_ext | uint16 = RMS × 10 000 |
-| 19 | 26 | mfcc_int[13] | int16[13] = coefficient × 100 |
-| 45 | 26 | mfcc_ext[13] | int16[13] = coefficient × 100 |
-| 71 | 2 | crc16 | CRC-16/CCITT |
+| 1 | 4 | seq | uint32 (aligné avec BlocENV) |
+| 5 | 4 | hive_id | `"B001"` ASCII |
+| 9 | 4 | timestamp | uint32 Unix UTC |
+| 13 | 2 | freq_int | uint16 = Hz × 10 |
+| 15 | 2 | rms_int | uint16 = RMS × 10 000 |
+| 17 | 2 | freq_ext | uint16 = Hz × 10 |
+| 19 | 2 | rms_ext | uint16 = RMS × 10 000 |
+| 21 | 26 | mfcc_int[13] | int16[13] : MFCC0 × 10 (résol. 0.1) ; MFCC1..12 × 1000 (résol. 0.001) |
+| 47 | 26 | mfcc_ext[13] | int16[13] : MFCC0 × 10 (résol. 0.1) ; MFCC1..12 × 1000 (résol. 0.001) |
+| 73 | 2 | crc16 | CRC-16/CCITT |
 
 `freq` et `rms` sont des **moyennes sur 11 fenêtres** (cohérent avec les MFCC).
 
@@ -285,6 +289,26 @@ Volume WAV : 0.46 MB/clip × 144 clips/jour = **66 MB/jour → 249 jours sur 16 
 Nom de fichier : `/wav/B001_20260616_1327_c0020.wav`
 
 Le clip WAV est enregistré **pendant l'attente du duty cycle** — il ne retarde pas les mesures.
+
+---
+
+## Watchdog matériel
+
+Le watchdog (`esp_task_wdt`) surveille la tâche principale et redémarre automatiquement
+l'ESP32 si le programme se bloque plus de `WDT_TIMEOUT_SEC` secondes.
+
+```
+setup()  → watchdog armé à 60s
+loop()   → esp_task_wdt_reset() en début de cycle  ← "je suis vivant"
+           [mesures + WAV : ~25s max]
+           [attente : reste du cycle]
+           → retour loop() dans les 60s → OK
+
+Si blocage (bus I2S gelé, SD bloquée...) → redémarrage automatique
+```
+
+`WDT_TIMEOUT_SEC = 60` — configurable dans `BeetterConfig.h`.
+Dimensionné pour couvrir le pire cas : cycle complet avec WAV (~25s) + marge.
 
 ---
 
@@ -354,17 +378,22 @@ FREQUENCE = 868.0            # MHz — doit correspondre à BeetterConfig.h
 | 1 | SD : 1 open/close par cycle via `beginCycle/endCycle` | `BeetterSD` |
 | 2 | MFCC : fenêtrage 11×2048 + moyennage (cohérence librosa) | `BeetterMic` |
 | 3 | Buffer capture statique `_captureBuf[24000]` — zéro malloc | `BeetterMic` |
-| 4 | Réinit I2S avant chaque capture (stabilité après WAV) | `BeetterMic` |
-| 5 | CSV : `snprintf()` statique — zéro allocation String | `Beetter_Main` |
-| 6 | `seqLoRa` uint32_t — overflow à 4 milliards de cycles | `Beetter_Main` |
-| 7 | WiFi déconnecté après sync NTP (~40 mA économisés) | `Beetter_Main` |
-| 8 | Démarrage autonome — pas de `while(!Serial)` | `Beetter_Main` |
-| 9 | UTC à la compilation via `UTC_OFFSET_SEC` | `BeetterRTC` |
-| 10 | En-têtes CSV recréés si fichier vide (après effacement SD) | `Beetter_Main` |
+| 4 | Buffers MFCC statiques (`_melPoints`, `_binPoints`, `_energieFiltres`) — remplacent `alloca()` | `BeetterMic` |
+| 5 | Réinit I2S **conditionnelle** (uniquement après WAV) — économise ~100ms/cycle | `BeetterMic` |
+| 6 | CSV : `snprintf()` statique — zéro allocation String | `Beetter_Main` |
+| 7 | `seqLoRa` uint32_t dans la trame — overflow à 4 milliards de cycles | `Beetter_Main` |
+| 8 | WiFi déconnecté après sync NTP (~40 mA économisés) | `Beetter_Main` |
+| 9 | Démarrage autonome — pas de `while(!Serial)` | `Beetter_Main` |
+| 10 | UTC à la compilation via `UTC_OFFSET_SEC` | `BeetterRTC` |
+| 11 | En-têtes CSV recréés si fichier vide (après effacement SD) | `Beetter_Main` |
+| 12 | Watchdog matériel 60s — redémarre si blocage I2S/SD | `Beetter_Main` |
+| 13 | Vérification SD présente à chaque cycle (retrait à chaud) | `BeetterSD` |
+| 14 | Nom WAV horodaté à la seconde — pas de doublon après reboot | `BeetterWAV` |
+| 15 | BLE désactivé — économie ~15 mA et RAM | `Beetter_Main` |
 
 ---
 
 ## GitHub & Démonstrateur
 
 - Code source : https://github.com/Charlox29/Beetter
-- Dashboard : https://beetter.fr
+- Site Web : https://beetter.fr

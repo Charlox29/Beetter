@@ -80,11 +80,18 @@ public:
     /** @return true si le bus I2S est prêt */
     bool isReady() const;
 
+    /**
+     * À appeler par BeetterWAV après avoir utilisé le bus I2S.
+     * Provoque une réinitialisation du bus à la prochaine capture.
+     */
+    void marquerI2SUtiliseParWAV();
+
 private:
     I2SClass  _i2s;
     uint8_t   _bclk = 0, _ws = 0, _din = 0;  // mémorisés pour réinit I2S
     uint32_t  _fs   = 8000;
     bool      _pret = false;
+    bool      _needReinit = false;  // true si WAV a pris le bus I2S
 
     // Buffers FFT statiques
     double _vReal[BEETTER_FFT_SIZE];
@@ -95,6 +102,13 @@ private:
     // 24000 samples × 4 bytes = 94 KB (taille fixe pour 3s @ 8kHz)
     static int32_t _captureBuf[24000];
     static uint32_t _captureBufSize;
+
+    // Buffers statiques pour _calculerMFCC – remplacent les alloca()
+    // Taille fixe : MFCC_NUM_FILTERS + 2 = 28 points de banque de filtres
+    static float  _melPoints[28];
+    static float  _hzPoints[28];
+    static int    _binPoints[28];
+    static double _energieFiltres[26];  // MFCC_NUM_FILTERS
 
     void _capturer(uint8_t canal, uint32_t n, int32_t* out);
 

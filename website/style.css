@@ -377,6 +377,12 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
     text-align: center; 
 }
 
+.stats-banner .grid-3 {
+    grid-template-columns: repeat(4, minmax(180px, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+}
+
 /* ═══════════════════════════════════════════════════════════ */
 /* FLOW / ARCHITECTURE */
 /* ═══════════════════════════════════════════════════════════ */

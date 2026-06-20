@@ -42,6 +42,80 @@ SOUND_FREQ_BASE = 230.0;  SOUND_FREQ_AMP = 40.0
 SOUND_AMP_BASE  = 0.35;   SOUND_AMP_AMP  = 0.15
 LIGHT_DAY_MAX   = 3.0
 
+# ── State presets ─────────────────────────────────────────────────────────────
+# Each preset overrides sensor values to mimic a known hive state.
+# Individual --temp-int etc. flags still take priority over presets.
+PRESETS = {
+    'calm': {
+        'temperature_int': 35.0,
+        'temperature_ext': 20.0,
+        'humidity_int':    63.0,
+        'humidity_ext':    68.0,
+        'sound_freq_int':  240.0,
+        'sound_amp_int':   0.35,
+        'sound_freq_ext':  115.0,
+        'sound_amp_ext':   0.10,
+        'light_ext':       1.5,
+        '_description':    'Ruche calme — valeurs normales',
+    },
+    'warning': {
+        'temperature_int': 38.5,
+        'temperature_ext': 20.0,
+        'humidity_int':    78.0,
+        'humidity_ext':    72.0,
+        'sound_freq_int':  340.0,
+        'sound_amp_int':   0.65,
+        'sound_freq_ext':  130.0,
+        'sound_amp_ext':   0.12,
+        'light_ext':       2.0,
+        '_description':    'Ruche en alerte — dépassement seuil warn',
+    },
+    'critical': {
+        'temperature_int': 43.0,
+        'temperature_ext': 20.0,
+        'humidity_int':    85.0,
+        'humidity_ext':    72.0,
+        'sound_freq_int':  390.0,
+        'sound_amp_int':   0.90,
+        'sound_freq_ext':  140.0,
+        'sound_amp_ext':   0.15,
+        'light_ext':       2.0,
+        '_description':    'Ruche critique — dépassement seuil crit',
+    },
+    'swarming': {
+        'temperature_int': 37.8,
+        'temperature_ext': 20.0,
+        'humidity_int':    70.0,
+        'humidity_ext':    68.0,
+        'sound_freq_int':  415.0,
+        'sound_amp_int':   0.88,
+        'sound_freq_ext':  120.0,
+        'sound_amp_ext':   0.11,
+        'light_ext':       1.8,
+        '_description':    'Essaimage — fréquence haute, amplitude forte',
+    },
+    'predator': {
+        'temperature_int': 36.0,
+        'temperature_ext': 20.0,
+        'humidity_int':    60.0,
+        'humidity_ext':    68.0,
+        'sound_freq_int':  370.0,
+        'sound_amp_int':   0.97,
+        'sound_freq_ext':  180.0,
+        'sound_amp_ext':   0.25,
+        'light_ext':       2.0,
+        '_description':    'Prédateur — amplitude maximale, fréquence chaotique',
+    },
+}
+
+PRESET_NOISE = {
+    'temperature_int': 0.3,  'temperature_ext': 0.4,
+    'humidity_int':    1.0,  'humidity_ext':    1.5,
+    'sound_freq_int':  8.0,  'sound_amp_int':   0.03,
+    'sound_freq_ext':  6.0,  'sound_amp_ext':   0.02,
+    'light_ext':       0.2,
+}
+
 
 def _mfcc(phase, base_c0, noise_scale=1.0):
     """
@@ -72,7 +146,8 @@ def simulate_reading(beehive_id: int, when: datetime,
                      include_mfcc: bool = True,
                      overrides: dict = None,
                      light_mode: str = "auto",
-                     point_idx: int = 0) -> dict:
+                     point_idx: int = 0,
+                     add_noise_to_overrides: bool = False) -> dict:
     """Generate a realistic reading with sinusoidal drift + noise."""
     hour  = when.hour + when.minute / 60
     phase = 2 * math.pi * hour / 24
@@ -123,7 +198,15 @@ def simulate_reading(beehive_id: int, when: datetime,
     if overrides:
         for key, val in overrides.items():
             if key in payload:
-                payload[key] = val
+                if add_noise_to_overrides and key in PRESET_NOISE:
+                    noisy = val + random.gauss(0, PRESET_NOISE[key])
+                    if 'humidity' in key:   noisy = max(0, min(100, noisy))
+                    elif 'amp' in key:      noisy = max(0, min(1, noisy))
+                    elif 'light' in key:    noisy = max(0, min(10, noisy))
+                    else:                   noisy = max(0, noisy)
+                    payload[key] = round(noisy, 2)
+                else:
+                    payload[key] = val
 
     return payload
 
@@ -146,18 +229,22 @@ def send(url: str, payload: dict) -> bool:
         return False
 
 
-def run_live(url, ids, interval, include_mfcc, overrides=None, light_mode="auto"):
+def run_live(url, ids, interval, include_mfcc, overrides=None, light_mode="auto",
+             add_noise_to_overrides=False):
     print(f"Live data → {url}  every {interval}s  MFCC={'yes' if include_mfcc else 'no'}  light={light_mode}  Ctrl+C to stop\n")
     counter = 0
     while True:
         now = datetime.now(timezone.utc)
         for bid in ids:
-            send(url, simulate_reading(bid, now, include_mfcc, overrides, light_mode, point_idx=counter))
+            send(url, simulate_reading(bid, now, include_mfcc, overrides, light_mode,
+                                       point_idx=counter,
+                                       add_noise_to_overrides=add_noise_to_overrides))
         counter += 1
         time.sleep(interval)
 
 
-def run_burst(url, ids, points, include_mfcc, overrides=None, light_mode="auto"):
+def run_burst(url, ids, points, include_mfcc, overrides=None, light_mode="auto",
+              add_noise_to_overrides=False):
     """Inject `points` historical readings spread over the last 24 h."""
     print(f"Injecting {points} historical points per beehive → {url}  MFCC={'yes' if include_mfcc else 'no'}  light={light_mode}\n")
     step  = timedelta(hours=24) / points
@@ -168,7 +255,9 @@ def run_burst(url, ids, points, include_mfcc, overrides=None, light_mode="auto")
         ok = 0
         for i in range(points):
             when = start + step * i
-            if send(url, simulate_reading(bid, when, include_mfcc, overrides, light_mode, point_idx=i)):
+            if send(url, simulate_reading(bid, when, include_mfcc, overrides, light_mode,
+                                          point_idx=i,
+                                          add_noise_to_overrides=add_noise_to_overrides)):
                 ok += 1
         print(f"  → {ok}/{points} points written\n")
 
@@ -201,10 +290,21 @@ def main():
                        "spike = oscillates between 0 and 9.5 every 10 points "
                        "(tests threshold breach + recovery)"
                    ))
+    p.add_argument(
+        '--preset',
+        choices=list(PRESETS.keys()),
+        default=None,
+        metavar='STATE',
+        help=(
+            'Preset state shortcut. Overrides simulation formulas with realistic values '
+            'for the given state. Individual --temp-int etc. flags still take priority.\n'
+            'Available: ' + ', '.join(PRESETS.keys())
+        )
+    )
     args = p.parse_args()
 
     include_mfcc = not args.no_mfcc
-    overrides = {k: v for k, v in {
+    cli_overrides = {k: v for k, v in {
         "temperature_int": args.temp_int,
         "temperature_ext": args.temp_ext,
         "humidity_int":    args.hum_int,
@@ -216,10 +316,23 @@ def main():
         "light_ext":       args.light,
     }.items() if v is not None}
 
-    if args.burst > 0:
-        run_burst(args.url, args.ids, args.burst, include_mfcc, overrides, args.light_mode)
+    if args.preset:
+        preset_vals = {k: v for k, v in PRESETS[args.preset].items()
+                       if not k.startswith('_')}
+        overrides = {**preset_vals, **cli_overrides}
+        print(f"  Preset: {args.preset} — {PRESETS[args.preset]['_description']}")
+        if cli_overrides:
+            print(f"  Overrides: {cli_overrides}")
     else:
-        run_live(args.url, args.ids, args.interval, include_mfcc, overrides, args.light_mode)
+        overrides = cli_overrides
+
+    add_noise = bool(args.preset)
+    if args.burst > 0:
+        run_burst(args.url, args.ids, args.burst, include_mfcc, overrides, args.light_mode,
+                  add_noise_to_overrides=add_noise)
+    else:
+        run_live(args.url, args.ids, args.interval, include_mfcc, overrides, args.light_mode,
+                 add_noise_to_overrides=add_noise)
 
 
 if __name__ == "__main__":

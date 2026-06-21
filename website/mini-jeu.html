@@ -74,13 +74,124 @@
             padding: 0.7rem 1.2rem !important;
             width: min(200px, 90%) !important;
         }
+
+        /* HUD du jeu */
+        .game-hud {
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            z-index: 500;
+            background: rgba(36, 36, 35, 0.85);
+            padding: 1rem 2rem;
+            border-radius: 15px;
+            border: 2px solid var(--accent);
+            font-weight: 600;
+            font-size: 1.1rem;
+            backdrop-filter: blur(5px);
+        }
+
+        .hud-element {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-primary);
+        }
+
+        .timer {
+            color: #ff4444;
+            font-size: 1.3rem;
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .combo-display {
+            color: var(--accent);
+            font-size: 1.2rem;
+            min-width: 120px;
+        }
+
+        .wave-badge {
+            background: var(--accent);
+            color: #242423;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-weight: 800;
+            min-width: 100px;
+            text-align: center;
+            animation: wavePopup 0.5s ease-out;
+        }
+
+        @keyframes wavePopup {
+            0% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* Stats écran de fin */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 2rem 0;
+            width: 100%;
+        }
+
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        .record-badge {
+            background: linear-gradient(135deg, #ff4444, var(--accent));
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-weight: 700;
+            margin-top: 1rem;
+            animation: shine 0.5s ease-out;
+        }
+
+        @keyframes shine {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body class="no-scroll">
 
     <nav class="navbar">
         <div class="logo">
-            <a href="index.html"><img src="Logo Beetter.svg" alt="Logo Beetter" class="logo-img"></a>
+            <a href="index.html"><img src="Logo_Beetter.svg" alt="Logo_Beetter" class="logo-img"></a>
         </div>
         <div class="nav-controls">
             <a href="index.html" class="nav-link-button lang-fr">Retour</a>
@@ -126,6 +237,15 @@
     <div class="bees-container" id="bees-container"></div>
     <div id="hornets-container"></div>
 
+    <!-- HUD du jeu -->
+    <div class="game-hud" id="game-hud" style="display:none;">
+        <div class="hud-element">
+            <span class="timer" id="timer">60s</span>
+        </div>
+        <div class="hud-element wave-badge" id="wave-badge">Vague 1</div>
+        <div class="hud-element combo-display" id="combo-display">Combo: 0</div>
+    </div>
+
     <!-- Game Over overlay -->
     <div class="game-over-overlay" id="game-over">
         <div class="game-over-box">
@@ -134,6 +254,37 @@
             <div class="final-score" id="final-score">0</div>
             <p class="lang-fr" style="color:var(--text-secondary);margin-bottom:2rem;">frelons éliminés</p>
             <p class="lang-en" style="color:var(--text-secondary);margin-bottom:2rem;">hornets eliminated</p>
+            
+            <!-- Grille de statistiques -->
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label lang-fr">Meilleur Combo</div>
+                    <div class="stat-label lang-en" style="display:none;">Best Combo</div>
+                    <div class="stat-value" id="stat-best-combo">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label lang-fr">Vague Atteinte</div>
+                    <div class="stat-label lang-en" style="display:none;">Wave Reached</div>
+                    <div class="stat-value" id="stat-wave">1</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label lang-fr">Abeilles Touchées</div>
+                    <div class="stat-label lang-en" style="display:none;">Bees Hit</div>
+                    <div class="stat-value" id="stat-bees-hit">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label lang-fr">Temps Survécu</div>
+                    <div class="stat-label lang-en" style="display:none;">Time Survived</div>
+                    <div class="stat-value" id="stat-time">60s</div>
+                </div>
+            </div>
+
+            <!-- Badge record personnel -->
+            <div id="record-banner" class="record-badge" style="display:none;">
+                <span class="lang-fr">🏆 Nouveau record personnel !</span>
+                <span class="lang-en" style="display:none;">🏆 New personal record!</span>
+            </div>
+
             <button id="restart-btn" class="game-btn">
                 <span class="lang-fr">🔄 Rejouer</span>
                 <span class="lang-en">🔄 Play again</span>
@@ -173,6 +324,16 @@
         let collisionCheckInterval = null;
         let gameActive = false;
         let hornetsKilled = 0;
+        let beesTouched = 0;
+        let combo = 0;
+        let bestCombo = 0;
+        let currentWave = 1;
+        let gameStartTime = 0;
+        let timeRemaining = 60;
+        let timerInterval = null;
+        let waveInterval = null;
+        let hornetsPerSecond = 1500; // intervalle de spawn des frelons en ms
+        let beesPerSecond = 3000; // intervalle de spawn des abeilles en ms
 
         const scoreBox       = document.getElementById('score-box');
         const scoreVal       = document.getElementById('score-val');
@@ -185,6 +346,26 @@
         const restartBtn     = document.getElementById('restart-btn');
         const gameLegend     = document.getElementById('game-legend');
         const hiveGraphic    = document.getElementById('hive-graphic');
+        const gameHud        = document.getElementById('game-hud');
+        const timerDisplay   = document.getElementById('timer');
+        const waveDisplay    = document.getElementById('wave-badge');
+        const comboDisplay   = document.getElementById('combo-display');
+
+        // === LOCALSTORAGE ===
+        function saveStats() {
+            const stats = {
+                bestScore: Math.max(score, parseInt(localStorage.getItem('bestScore') || 0)),
+                lastWave: currentWave,
+                plays: (parseInt(localStorage.getItem('plays') || 0)) + 1
+            };
+            localStorage.setItem('bestScore', stats.bestScore);
+            localStorage.setItem('lastWave', stats.lastWave);
+            localStorage.setItem('plays', stats.plays);
+        }
+
+        function getBestRecord() {
+            return parseInt(localStorage.getItem('bestScore') || 0);
+        }
 
         function getHiveRect() {
             return hiveGraphic.getBoundingClientRect();
@@ -203,6 +384,56 @@
             pop.style.color = color;
             document.body.appendChild(pop);
             setTimeout(() => pop.remove(), 800);
+        }
+
+        // Montrer nouvelle vague
+        function showWaveBadge() {
+            waveDisplay.textContent = `Vague ${currentWave}`;
+            waveDisplay.style.animation = 'none';
+            setTimeout(() => {
+                waveDisplay.style.animation = 'wavePopup 0.5s ease-out';
+            }, 50);
+        }
+
+        // Augmenter difficulté chaque 10 secondes
+        function updateWave() {
+            const elapsed = 60 - timeRemaining;
+            const newWave = Math.floor(elapsed / 10) + 1;
+            if (newWave > currentWave) {
+                currentWave = newWave;
+                // Augmenter vitesse et fréquence
+                hornetsPerSecond = Math.max(500, 1500 - (currentWave - 1) * 150); // Min 500ms
+                beesPerSecond = Math.max(1500, 3000 - (currentWave - 1) * 200); // Min 1500ms
+                showWaveBadge();
+                // Relancer les intervalles avec les nouveaux délais
+                clearInterval(gameInterval);
+                clearInterval(beeInterval);
+                gameInterval = setInterval(spawnHornet, hornetsPerSecond);
+                beeInterval = setInterval(spawnBee, beesPerSecond);
+            }
+        }
+
+        function updateTimer() {
+            timeRemaining--;
+            timerDisplay.textContent = timeRemaining + 's';
+            
+            if (timeRemaining <= 0) {
+                endGame('timeout');
+                return;
+            }
+
+            // Vérifier augmentation de vague toutes les secondes
+            updateWave();
+        }
+
+        function updateCombo(increased) {
+            if (increased) {
+                combo++;
+                bestCombo = Math.max(bestCombo, combo);
+            } else {
+                combo = 0;
+            }
+            comboDisplay.textContent = `Combo: ${combo}x +${combo + 1}`;
         }
 
         function spawnHornet() {
@@ -231,12 +462,17 @@
                 e.preventDefault && e.preventDefault();
                 const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
                 const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
-                score++;
+                
+                // Points avec combo
+                const points = combo + 1;
+                score += points;
                 hornetsKilled++;
+                updateCombo(true);
+                
                 scoreVal.textContent = score;
                 const hiveScoreEl = document.getElementById('hive-score-val');
                 if (hiveScoreEl) hiveScoreEl.textContent = score;
-                showPopup(clientX, clientY, '+1 🎯', '#4caf50');
+                showPopup(clientX, clientY, `+${points} 🎯`, '#4caf50');
                 this.remove();
             }
             hornet.addEventListener('mousedown', handleHornetKill);
@@ -250,14 +486,14 @@
             ], { duration, easing: 'linear' });
 
             // Check collision with hive every frame
-            let hornетAlive = true;
+            let hornеtAlive = true;
             function checkHiveCollision() {
-                if (!gameActive || !hornетAlive) return;
+                if (!gameActive || !hornеtAlive) return;
                 if (!document.body.contains(hornet)) return;
                 const hornetRect = hornet.getBoundingClientRect();
                 const hiveRect = getHiveRect();
                 if (rectsOverlap(hornetRect, hiveRect)) {
-                    hornетAlive = false;
+                    hornеtAlive = false;
                     hornet.remove();
                     endGame('hive');
                     return;
@@ -266,7 +502,7 @@
             }
             requestAnimationFrame(checkHiveCollision);
 
-            anim.onfinish = () => { hornетAlive = false; if (document.body.contains(hornet)) hornet.remove(); };
+            anim.onfinish = () => { hornеtAlive = false; if (document.body.contains(hornet)) hornet.remove(); };
         }
 
         function spawnBee() {
@@ -292,6 +528,8 @@
                 const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
                 const clientY = (e.touches && e.touches[0]) ? e.touches[0].clientY : e.clientY;
                 score--;
+                beesTouched++;
+                updateCombo(false); // Réinitialise combo
                 scoreVal.textContent = score;
                 const hiveScoreEl = document.getElementById('hive-score-val');
                 if (hiveScoreEl) hiveScoreEl.textContent = score;
@@ -316,31 +554,68 @@
             gameActive = true;
             score = 0;
             hornetsKilled = 0;
+            beesTouched = 0;
+            combo = 0;
+            bestCombo = 0;
+            currentWave = 1;
+            timeRemaining = 60;
+            hornetsPerSecond = 1500;
+            beesPerSecond = 3000;
+            
             scoreVal.textContent = 0;
             scoreBox.classList.add('active');
             startBtnFr.style.display = 'none';
             startBtnEn.style.display = 'none';
-            // hide legend once the game has started
             gameLegend.style.display = 'none';
+            gameHud.style.display = 'flex';
+            
             const hiveScoreEl = document.getElementById('hive-score-val');
             if (hiveScoreEl) hiveScoreEl.textContent = '0';
+
+            // Afficher vague initiale
+            showWaveBadge();
+            updateCombo(false);
+            timerDisplay.textContent = '60s';
 
             // Spawn 4 abeilles au départ
             for (let i = 0; i < 4; i++) spawnBee();
 
-            gameInterval = setInterval(spawnHornet, 1500);
-            beeInterval  = setInterval(spawnBee, 3000);
+            gameInterval = setInterval(spawnHornet, hornetsPerSecond);
+            beeInterval = setInterval(spawnBee, beesPerSecond);
+            timerInterval = setInterval(updateTimer, 1000);
         }
 
         function endGame(reason) {
             gameActive = false;
             clearInterval(gameInterval);
             clearInterval(beeInterval);
+            clearInterval(timerInterval);
             gameInterval = null;
             beeInterval = null;
+            timerInterval = null;
             beesContainer.innerHTML = '';
             hornetsContainer.innerHTML = '';
+            gameHud.style.display = 'none';
+
+            // Calculer temps survécu
+            const timeSurvived = 60 - timeRemaining;
+
+            // Afficher résultat principal
             finalScoreEl.textContent = hornetsKilled;
+
+            // Remplir les stats
+            document.getElementById('stat-best-combo').textContent = bestCombo;
+            document.getElementById('stat-wave').textContent = currentWave;
+            document.getElementById('stat-bees-hit').textContent = beesTouched;
+            document.getElementById('stat-time').textContent = timeSurvived + 's';
+
+            // Vérifier record personnel
+            const previousBestScore = getBestRecord();
+            const isNewRecord = hornetsKilled > previousBestScore;
+            document.getElementById('record-banner').style.display = isNewRecord ? 'block' : 'none';
+
+            // Sauvegarder stats
+            saveStats();
 
             // Update game-over message depending on reason
             const titleFr = gameOverEl.querySelector('h2.lang-fr');
@@ -352,9 +627,14 @@
                 if (titleEn) titleEn.textContent = '🐝 The hive is invaded!';
                 if (subFr) subFr.textContent = 'frelons éliminés avant l\'invasion';
                 if (subEn) subEn.textContent = 'hornets eliminated before invasion';
-            } else {
-                if (titleFr) titleFr.textContent = '🐝 Partie terminée !';
-                if (titleEn) titleEn.textContent = '🐝 Game over!';
+            } else if (reason === 'bee') {
+                if (titleFr) titleFr.textContent = '🐝 Score négatif !';
+                if (titleEn) titleEn.textContent = '🐝 Negative score!';
+                if (subFr) subFr.textContent = 'vous avez touché trop d\'abeilles';
+                if (subEn) subEn.textContent = 'you hit too many bees';
+            } else if (reason === 'timeout') {
+                if (titleFr) titleFr.textContent = '⏰ Temps écoulé !';
+                if (titleEn) titleEn.textContent = '⏰ Time\'s up!';
                 if (subFr) subFr.textContent = 'frelons éliminés';
                 if (subEn) subEn.textContent = 'hornets eliminated';
             }
@@ -367,11 +647,14 @@
             gameActive = false;
             clearInterval(gameInterval);
             clearInterval(beeInterval);
+            clearInterval(timerInterval);
             gameInterval = null;
             beeInterval = null;
+            timerInterval = null;
             beesContainer.innerHTML = '';
             hornetsContainer.innerHTML = '';
             gameOverEl.style.display = 'none';
+            gameHud.style.display = 'none';
             startBtnFr.style.display = '';
             startBtnEn.style.display = '';
             scoreBox.classList.remove('active');

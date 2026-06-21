@@ -68,6 +68,66 @@
             display: flex;
             justify-content: center;
         }
+
+         .installation-gallery {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }    
+         
+        .gallery-item {
+            margin: 0;
+            border-radius: 12px;
+            overflow: hidden;
+            background: var(--card-bg);
+            box-shadow: 0 4px 16px var(--shadow);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .gallery-item:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px var(--shadow-accent);
+        }
+        .gallery-item img {
+            width: 100%;
+            height: auto;
+            object-fit: cover;
+            display: block;
+        }
+        .installation-gallery .gallery-item:not(.gallery-item--wide) {
+            width: 300px;
+            flex-shrink: 0;
+        }
+        .installation-gallery .gallery-item:not(.gallery-item--wide) img {
+            width: 100%;
+            height: auto;
+            object-fit: unset;
+        }
+        .gallery-item--wide {
+            grid-column: 1 / -1;
+        }
+        .gallery-item--wide img {
+            height: auto;
+        }
+        .gallery-item figcaption {
+            padding: 0.85rem 1.2rem;
+            font-size: 0.9rem;
+            color: var(--text-muted, #888);
+            text-align: center;
+        }
+        @media (max-width: 700px) {
+            .installation-gallery {
+                grid-template-columns: 1fr;
+            }
+            .gallery-item--wide {
+                grid-column: 1;
+            }
+            .gallery-item img,
+            .gallery-item--wide img {
+                height: auto;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -217,6 +277,21 @@
                     <p class="lang-en">Web platform and Android app. Monitor health status, analyze history, and receive predictive alerts in real time.</p>
                 </div>
             </div>
+
+
+            <div class="installation-gallery">
+
+            <figure class="gallery-item gallery-item--wide">
+                    <img src="beetter_hive_home.png" alt="Prototype Beetter Hive et Beetter Home — carte électronique, panneau solaire et passerelle LoRa" loading="lazy">
+                    <figcaption>
+                        <span class="lang-fr">Prototype complet : module Beetter Hive et Beetter Home</span>
+                        <span class="lang-en">Full prototype: Beetter Hive module and Beetter Home</span>
+                    </figcaption>
+            </figure>
+
+            </div>
+
+
         </div>
     </section>
 
@@ -338,8 +413,8 @@
         <div class="container">
             <div class="section-header">
                 <h2>
-                    <span class="lang-fr">Éthique &amp; Conception</span>
-                    <span class="lang-en">Ethics &amp; Design</span>
+                    <span class="lang-fr">Éthique & Installation sur le Terrain</span>
+                    <span class="lang-en">Ethics & Field Installation</span>
                 </h2>
                 <div class="divider"></div>
             </div>
@@ -364,6 +439,24 @@
                     <span class="lang-en">Read the full ethics report</span>
                 </a>
             </p>
+        </div>
+
+        <div class="installation-gallery">
+                <figure class="gallery-item">
+                    <img src="installation_1.png" alt="Apiculteurs inspectant les ruches lors de l'installation du module Beetter" loading="lazy">
+                    <figcaption>
+                        <span class="lang-fr">Inspection des ruches </span>
+                        <span class="lang-en">Hive inspection</span>
+                    </figcaption>
+                </figure>
+                <figure class="gallery-item">
+                    <img src="installation_2.png" alt="Installation électronique du module Beetter Hive dans la ruche" loading="lazy">
+                    <figcaption>
+                        <span class="lang-fr">Installation de Beetter Hive</span>
+                        <span class="lang-en">Beetter Hive installation</span>
+                    </figcaption>
+                </figure>
+
         </div>
     </section>
 

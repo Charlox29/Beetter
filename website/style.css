@@ -1,5 +1,37 @@
 /* ═══════════════════════════════════════════════════════════ */
-/* VARIABLES & RESET */
+/*  BEETTER — FEUILLE DE STYLE PRINCIPALE                       */
+/*  Tous les styles du site (index.html + mini-jeu.html)        */
+/*  sont centralisés ici. Aucun CSS ne doit rester inline       */
+/*  dans les fichiers HTML : toute nouvelle règle vient ici.    */
+/* ═══════════════════════════════════════════════════════════ */
+/*
+   SOMMAIRE
+   ────────────────────────────────────────────────────────────
+   1.  VARIABLES & RESET
+   2.  LAYOUT
+   3.  NAVIGATION
+   4.  HERO SECTION
+   5.  BUTTONS & CTAs
+   6.  SECTIONS (génériques)
+   7.  CARDS & BOXES
+   8.  STATS BANNER
+   9.  FLOW / ARCHITECTURE
+   10. DASHBOARD (aperçu maquette)
+   11. TABLES & BADGES
+   12. TEAM
+   13. FAQ
+   14. RESOURCES
+   15. FOOTER
+   16. VESPA VELUTINA SECTION
+   17. GALERIES IMAGES (installation + dashboard screenshots)
+   18. MINI-JEU (page mini-jeu.html)
+   19. RESPONSIVE / MOBILE
+   20. ANIMATIONS (scroll fade-in)
+   ────────────────────────────────────────────────────────────
+*/
+
+/* ═══════════════════════════════════════════════════════════ */
+/* 1. VARIABLES & RESET */
 /* ═══════════════════════════════════════════════════════════ */
 
 @font-face {
@@ -38,6 +70,12 @@
 :root:lang(fr) .lang-en { display: none; }
 :root:lang(en) .lang-fr { display: none; }
 
+/* Classe utilitaire générique pour masquer un élément (remplace les
+   attributs style="display:none" inline pilotés au chargement de la page).
+   !important nécessaire : elle doit toujours gagner face à un display
+   défini par une autre classe de composant (ex. .game-hud { display:flex }). */
+.is-hidden { display: none !important; }
+
 * {
     margin: 0;
     padding: 0;
@@ -58,7 +96,7 @@ body {
 body.no-scroll { overflow: hidden; }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* LAYOUT */
+/* 2. LAYOUT */
 /* ═══════════════════════════════════════════════════════════ */
 
 .container {
@@ -71,7 +109,7 @@ body.no-scroll { overflow: hidden; }
 .grid-3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 2rem; }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* NAVIGATION */
+/* 3. NAVIGATION */
 /* ═══════════════════════════════════════════════════════════ */
 
 .navbar {
@@ -160,14 +198,26 @@ body.no-scroll { overflow: hidden; }
     cursor: pointer;
 }
 
+/* .lang-btn : bouton FR|EN de la navbar.
+   Version consolidée — fusionne la base historique de style.css
+   avec les surcharges qui étaient dupliquées en inline dans
+   index.html et mini-jeu.html (bordure 2px, hover avec lift). */
 .lang-btn {
-    font-weight: 800;
-    font-size: 1rem;
-    padding: 0.4rem 0.8rem;
-    border: 1px solid var(--accent);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1.1rem;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    border: 2px solid var(--accent);
     border-radius: 20px;
+    background: transparent;
     color: var(--accent);
+    cursor: pointer;
     white-space: nowrap;
+    transition: transform 0.2s ease, box-shadow 0.2s ease,
+                background-color 0.2s ease, color 0.2s ease;
 }
 
 .nav-link-button {
@@ -194,9 +244,13 @@ body.no-scroll { overflow: hidden; }
     color: #242423;
 }
 
+/* Bouton Retour (mini-jeu.html) et bouton FR|EN partagent le même hover harmonisé. */
+.nav-link-button:hover,
 .lang-btn:hover {
     background-color: var(--accent);
     color: #242423;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px var(--shadow-accent);
 }
 
 .theme-btn:hover, .github-link:hover {
@@ -205,7 +259,7 @@ body.no-scroll { overflow: hidden; }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* HERO SECTION */
+/* 4. HERO SECTION */
 /* ═══════════════════════════════════════════════════════════ */
 
 .hero {
@@ -283,7 +337,7 @@ body.no-scroll { overflow: hidden; }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* BUTTONS & CTAs */
+/* 5. BUTTONS & CTAs */
 /* ═══════════════════════════════════════════════════════════ */
 
 .cta-button {
@@ -306,7 +360,7 @@ body.no-scroll { overflow: hidden; }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* SECTIONS */
+/* 6. SECTIONS (génériques) */
 /* ═══════════════════════════════════════════════════════════ */
 
 .section { padding: 5rem 0 1.5rem; position: relative; }
@@ -334,7 +388,7 @@ body.no-scroll { overflow: hidden; }
 h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* CARDS & BOXES */
+/* 7. CARDS & BOXES */
 /* ═══════════════════════════════════════════════════════════ */
 
 .card, .feature-box, .tech-item {
@@ -368,7 +422,7 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* STATS BANNER */
+/* 8. STATS BANNER */
 /* ═══════════════════════════════════════════════════════════ */
 
 .stats-banner { 
@@ -383,8 +437,20 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
     align-items: stretch;
 }
 
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 800;
+    margin-bottom: 0.2rem;
+    color: #242423;
+}
+
+.stat-label {
+    color: #333533;
+    font-weight: 600;
+}
+
 /* ═══════════════════════════════════════════════════════════ */
-/* FLOW / ARCHITECTURE */
+/* 9. FLOW / ARCHITECTURE */
 /* ═══════════════════════════════════════════════════════════ */
 
 .flow-grid {
@@ -452,7 +518,7 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* DASHBOARD */
+/* 10. DASHBOARD (aperçu maquette) */
 /* ═══════════════════════════════════════════════════════════ */
 
 .dashboard-preview {
@@ -549,8 +615,11 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
     font-weight: 600; 
 }
 
+/* Mise en page de la grille "Fonctionnalités du Tableau de Bord" (#dashboard) */
+.dashboard-features { align-items: start; gap: 3rem; }
+
 /* ═══════════════════════════════════════════════════════════ */
-/* TABLES & BADGES */
+/* 11. TABLES & BADGES */
 /* ═══════════════════════════════════════════════════════════ */
 
 .acoustic-table { 
@@ -592,7 +661,7 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 .badge-crit { background: rgba(244,67,54,0.15); color: #f44336; }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* TEAM */
+/* 12. TEAM */
 /* ═══════════════════════════════════════════════════════════ */
 
 .team-grid { 
@@ -658,7 +727,7 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* FAQ */
+/* 13. FAQ */
 /* ═══════════════════════════════════════════════════════════ */
 
 .faq-grid { 
@@ -702,8 +771,18 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* RESOURCES */
+/* 14. RESOURCES */
 /* ═══════════════════════════════════════════════════════════ */
+
+/* Conteneur de la section "Ressources du Projet" */
+.resources-section { padding: 4rem 0; }
+.resources-container { text-align: center; }
+.resources-title {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 0.5rem;
+    color: var(--text-primary);
+}
 
 /* Boutons de ressource centralisés et accessibles depuis l'encart projet. */
 .resources-row {
@@ -750,8 +829,22 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
     transform: translateY(-2px); 
 }
 
+/* Variante centrée du bouton ressource, utilisée seule (hors .resources-row) */
+.resource-btn--centered {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 auto;
+}
+
+/* Conteneur du lien "Lire le rapport d'éthique complet" (section Éthique) */
+.ethics-report-link {
+    text-align: center;
+    margin-top: 2rem;
+}
+
 /* ═══════════════════════════════════════════════════════════ */
-/* FOOTER */
+/* 15. FOOTER */
 /* ═══════════════════════════════════════════════════════════ */
 
 /* Style sombre du footer pour clore la page avec un contraste fort. */
@@ -794,43 +887,38 @@ footer {
     font-size: 1rem; 
 }
 
-/* ═══════════════════════════════════════════════════════════ */
-/* STATS BANNER — valeurs et labels                           */
-/* ═══════════════════════════════════════════════════════════ */
-
-.stats-banner .grid-3 { gap: 1rem; }
-
-.stat-value {
-    font-size: 2.5rem;
-    font-weight: 800;
-    margin-bottom: 0.2rem;
-    color: #242423;
-}
-
-.stat-label {
-    color: #333533;
-    font-weight: 600;
+/* Mention du suiveur de projet (équipe) */
+.footer-supervisor {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* RESSOURCES                                                 */
+/* 16. VESPA VELUTINA SECTION */
 /* ═══════════════════════════════════════════════════════════ */
 
-.resources-section { padding: 4rem 0; }
-.resources-container { text-align: center; }
-.resources-title {
-    font-size: 2rem;
-    font-weight: 800;
-    margin-bottom: 0.5rem;
-    color: var(--text-primary);
+/* Grille centrée texte + image pour la section "Menace Vespa velutina" */
+.vespa-grid {
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    flex-wrap: wrap;
 }
 
-/* ═══════════════════════════════════════════════════════════ */
-/* VESPA VELUTINA SECTION                                     */
-/* ═══════════════════════════════════════════════════════════ */
+.vespa-grid .game-content {
+    text-align: center;
+    max-width: 640px;
+}
 
-.vespa-grid { align-items: center; }
+.vespa-grid .game-image {
+    display: flex;
+    justify-content: center;
+}
+
 .vespa-desc { color: var(--text-secondary); margin-bottom: 2rem; }
+
 .vespa-img {
     max-width: 100%;
     border-radius: 16px;
@@ -841,25 +929,109 @@ footer {
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* DASHBOARD FEATURES                                         */
+/* 17. GALERIES IMAGES (installation + dashboard screenshots) */
 /* ═══════════════════════════════════════════════════════════ */
 
-.dashboard-features { align-items: start; gap: 3rem; }
-
-/* ═══════════════════════════════════════════════════════════ */
-/* FOOTER SUPERVISOR                                          */
-/* ═══════════════════════════════════════════════════════════ */
-
-.footer-supervisor {
-    text-align: center;
+/* Galerie générique utilisée pour les photos d'installation sur le terrain */
+.installation-gallery {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
     margin-top: 2rem;
-    font-size: 0.9rem;
-    color: var(--text-secondary);
 }
 
+.gallery-item {
+    margin: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: 0 4px 16px var(--shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.gallery-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px var(--shadow-accent);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: auto;
+    object-fit: cover;
+    display: block;
+}
+
+/* Items "normaux" (non pleine largeur) de la galerie d'installation */
+.installation-gallery .gallery-item:not(.gallery-item--wide) {
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.installation-gallery .gallery-item:not(.gallery-item--wide) img {
+    width: 100%;
+    height: auto;
+    object-fit: unset;
+}
+
+/* Item pleine largeur (ex : photo du prototype complet) */
+.gallery-item--wide { grid-column: 1 / -1; }
+.gallery-item--wide img { height: auto; }
+
+.gallery-item figcaption {
+    padding: 0.85rem 1.2rem;
+    font-size: 0.9rem;
+    color: var(--text-muted, #888);
+    text-align: center;
+}
+
+/* Galerie spécifique aux captures d'écran du tableau de bord */
+.dashboard-gallery {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.dashboard-gallery .gallery-item {
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: 0 4px 24px var(--shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.dashboard-gallery .gallery-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 32px var(--shadow-accent);
+}
+
+.dashboard-gallery .gallery-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 14px 14px 0 0;
+}
+
+.dashboard-gallery .gallery-item figcaption {
+    padding: 0.85rem 1.2rem;
+    font-size: 0.88rem;
+    color: var(--text-muted, #888);
+    text-align: center;
+}
+
+/* Espace au-dessus de la galerie quand elle suit directement une grille de features */
+.dashboard-gallery--spaced { margin-top: 3rem; }
+
+/* Espace au-dessus des figures "vue détaillée" qui suivent la vue d'ensemble */
+.gallery-item--detail { margin-top: 1.5rem; }
+
 /* ═══════════════════════════════════════════════════════════ */
-/* MINI-JEU */
+/* 18. MINI-JEU (page mini-jeu.html) */
 /* ═══════════════════════════════════════════════════════════ */
+
+/* Mise en couleur des mots-clés "frelons" (danger) / "abeilles" (ami)
+   dans le texte d'introduction du jeu. */
+.text-hornet { color: #ff4444; }
+.text-bee { color: var(--accent); }
 
 .hive-stage {
     display: flex;
@@ -872,13 +1044,16 @@ footer {
     text-align: center;
 }
 
+/* Bloc visuel de la ruche (emoji 🏠🐝) au centre de l'écran de jeu.
+   Taille compacte : c'est la valeur réellement affichée sur le site
+   (elle écrasait auparavant une valeur plus grande via !important). */
 .hive-graphic {
-    font-size: 5rem;
-    padding: 2rem;
+    font-size: 2.8rem;
+    padding: 0.7rem 1.2rem;
     border-radius: 24px;
     background: rgba(245, 203, 92, 0.12);
     border: 1px dashed var(--accent);
-    width: min(420px, 100%);
+    width: min(200px, 90%);
     margin: 0 auto;
 }
 
@@ -1038,8 +1213,157 @@ footer {
     margin: 1rem 0; 
 }
 
+/* Sous-titre "frelons éliminés / hornets eliminated" sous le score final */
+.game-over-subtitle {
+    color: var(--text-secondary);
+    margin-bottom: 2rem;
+}
+
+/* Bouton principal du jeu (Démarrer / Rejouer) — même gabarit partout */
+.game-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.9rem 2rem;
+    background-color: var(--accent);
+    color: #242423;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 1rem;
+    font-weight: 800;
+    border: 2px solid var(--accent);
+    border-radius: 30px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+    white-space: nowrap;
+    min-width: 180px;
+}
+
+.game-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px var(--shadow-accent);
+    background-color: var(--accent-hover);
+}
+
+.game-btn:active {
+    transform: translateY(0);
+}
+
+/* HUD (compteur, vague, combo) affiché pendant une partie */
+.game-hud {
+    position: fixed;
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    z-index: 500;
+    background: rgba(36, 36, 35, 0.85);
+    padding: 1rem 2rem;
+    border-radius: 15px;
+    border: 2px solid var(--accent);
+    font-weight: 600;
+    font-size: 1.1rem;
+    backdrop-filter: blur(5px);
+}
+
+.hud-element {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+}
+
+.timer {
+    color: #ff4444;
+    font-size: 1.3rem;
+    min-width: 80px;
+    text-align: center;
+}
+
+.combo-display {
+    color: var(--accent);
+    font-size: 1.2rem;
+    min-width: 120px;
+}
+
+.wave-badge {
+    background: var(--accent);
+    color: #242423;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-weight: 800;
+    min-width: 100px;
+    text-align: center;
+    animation: wavePopup 0.5s ease-out;
+}
+
+@keyframes wavePopup {
+    0% {
+        transform: scale(1.2);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Grille de statistiques affichée sur l'écran de fin de partie */
+.game-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin: 2rem 0;
+    width: 100%;
+}
+
+/* Une cellule de la grille de stats de fin de partie. */
+.game-stat-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 1rem;
+    text-align: center;
+}
+
+.game-stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.game-stat-value {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: var(--accent);
+}
+
+/* Bandeau "Nouveau record personnel" */
+.record-badge {
+    background: linear-gradient(135deg, #ff4444, var(--accent));
+    color: white;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    font-weight: 700;
+    margin-top: 1rem;
+    animation: shine 0.5s ease-out;
+}
+
+@keyframes shine {
+    0% {
+        transform: scale(0.8);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
 /* ═══════════════════════════════════════════════════════════ */
-/* RESPONSIVE */
+/* 19. RESPONSIVE / MOBILE */
 /* ═══════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
@@ -1308,6 +1632,20 @@ html {
     }
 }
 
+/* ── GALERIE D'INSTALLATION MOBILE ─────────────────────────── */
+@media (max-width: 700px) {
+    .installation-gallery {
+        grid-template-columns: 1fr;
+    }
+    .gallery-item--wide {
+        grid-column: 1;
+    }
+    .gallery-item img,
+    .gallery-item--wide img {
+        height: auto;
+    }
+}
+
 /* ── RESOURCES MOBILE ──────────────────────────────────────── */
 @media (max-width: 500px) {
     .resources-row { flex-direction: column; align-items: stretch; }
@@ -1349,6 +1687,10 @@ html {
         -webkit-tap-highlight-color: transparent;
     }
 }
+
+/* ═══════════════════════════════════════════════════════════ */
+/* 20. ANIMATIONS (scroll fade-in) */
+/* ═══════════════════════════════════════════════════════════ */
 
 /* ── SECTION FADE-IN ON SCROLL (CSS only) ──────────────────── */
 @media (prefers-reduced-motion: no-preference) {

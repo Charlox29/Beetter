@@ -973,8 +973,13 @@ footer {
     object-fit: unset;
 }
 
-/* Item pleine largeur (ex : photo du prototype complet) */
-.gallery-item--wide { grid-column: 1 / -1; }
+/* Item pleine largeur (ex : photo du prototype complet) — réduit à 75% pour ne pas dominer la section */
+.gallery-item--wide {
+    grid-column: 1 / -1;
+    width: 75%;
+    max-width: 75%;
+    margin: 0 auto;
+}
 .gallery-item--wide img { height: auto; }
 
 .gallery-item figcaption {
@@ -1113,10 +1118,7 @@ footer {
 /* Frelons */
 .bees-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     pointer-events: none;
     z-index: 998;
     overflow: hidden;
@@ -1124,10 +1126,7 @@ footer {
 
 #hornets-container {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     pointer-events: none;
     z-index: 999;
     overflow: hidden;
@@ -1180,10 +1179,7 @@ footer {
 
 .game-over-overlay {
     position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
+    inset: 0;
     background: rgba(0,0,0,0.75);
     display: none;
     align-items: center;
@@ -1382,6 +1378,8 @@ footer {
 html {
     scroll-behavior: smooth;
     -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
+    width: 100%;
 }
 
 /* ── HAMBURGER MENU ────────────────────────────────────────── */
@@ -1639,6 +1637,9 @@ html {
     }
     .gallery-item--wide {
         grid-column: 1;
+        width: 75%;
+        max-width: 75%;
+        margin: 0 auto;
     }
     .gallery-item img,
     .gallery-item--wide img {

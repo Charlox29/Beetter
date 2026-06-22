@@ -101,7 +101,7 @@ URL boards manager :
 │  3. MFCC intérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  4. MFCC extérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  5. Écriture SD           ~15 ms   3 fichiers CSV (1 ouverture) │
-│  6. Envoi LoRa           ~176 ms   ENV+AUD 100 bytes, DC 0.60%  │
+│  6. Envoi LoRa           ~180 ms   ENV+AUD 100 bytes, DC 0.60%  │
 │  7. [WAV si cycle×20]  ~15 000 ms   clip stéréo 15s sur SD     │
 │  8. Attente               reste    jusqu'à t=30s depuis début   │
 │                                                                  │
@@ -332,42 +332,38 @@ Le RTC PCF8523 stocke **toujours l'heure UTC**. Tous les timestamps CSV et LoRa 
 
 Utilisé **uniquement au démarrage** pour synchroniser le RTC via NTP, puis déconnecté immédiatement (~40 mA économisés en continu). Si le WiFi est indisponible, le démarrage continue normalement avec l'heure de compilation.
 
-Le **Bluetooth LE** reste actif en permanence pour la configuration terrain et les notifications (nRF Connect compatible).
+Le **Bluetooth LE** est désactivé pour économiser ~15 mA et de la mémoire RAM. La bibliothèque `BeetterWifi` inclut le support BLE (NimBLE-Arduino optionnel) — réactivable si nécessaire via `wifi.demarrerBLE(BT_DEVICE_NAME)` dans `Beetter_Main.ino`.
 
 ---
 
 ## Beetter Home – Récepteur Python (Raspberry Pi)
 
+Le script `lora/receiver.py` écoute les trames binaires des nœuds ESP32 via un module **Grove LoRa 868 MHz** connecté en série (`/dev/ttyAMA10` sur RPi 5, `/dev/serial0` sur les modèles précédents), les décode (blocs ENV et AUD) et envoie chaque relevé à l'API Flask locale via `POST /api/data`.
+
 ### Prérequis
 
 ```bash
-pip3 install pyserial influxdb-client
+cd lora
+pip install -r requirements.txt
 ```
 
 ### Lancement
 
 ```bash
-python3 receiver.py                    # affichage console
-INFLUX_ENABLE=1 INFLUX_TOKEN=xxx python3 receiver.py   # + InfluxDB
+# Affichage console seulement
+python3 receiver.py
+
+# Avec envoi vers l'API Flask
+API_ENABLE=1 BEETTER_API_URL=http://localhost:5000 python3 receiver.py
 ```
 
-### Configuration (`receiver.py`)
+### Variables d'environnement
 
-```python
-PORT      = "/dev/serial0"   # GPIO UART — ou "/dev/ttyUSB0" pour USB-UART
-FREQUENCE = 868.0            # MHz — doit correspondre à BeetterConfig.h
-```
-
-### Champs InfluxDB (nomenclature `influxdb.py` beetter.fr)
-
-| Measurement | Source | Unité |
+| Variable | Défaut | Description |
 |---|---|---|
-| `temperature_int` / `temperature_ext` | SHT40 | °C |
-| `humidity_int` / `humidity_ext` | SHT40 | %RH |
-| `sound_freq_int` / `sound_freq_ext` | MFCC – moyenne 11 fenêtres | Hz |
-| `sound_amp_int` / `sound_amp_ext` | MFCC – RMS moyen 11 fenêtres | — |
-| `light_ext` | GL5539 | indice 0.0–10.0 |
-| `mfcc_int_0..12` / `mfcc_ext_0..12` | MFCC – moyennes 11 fenêtres | — |
+| `API_ENABLE` | `0` | Activer l'envoi vers l'API Flask (`1` pour activer) |
+| `BEETTER_API_URL` | `http://localhost:5000` | URL de base de l'app Flask |
+| `BEETTER_API_TIMEOUT` | `5` | Timeout (secondes) des requêtes HTTP |
 
 ---
 

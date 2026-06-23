@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # 1. Chargement des pistes (Assurez-vous d'utiliser vos vrais chemins de fichiers)
-ruche, sr = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/bruit_ruche.wav", sr=22050)
-frelon, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon.wav", sr=22050)
+ruche, sr = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/ruche_exterieur.wav", sr=22050)
+frelon, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/echantillon abeille1.wav", sr=22050)
 son1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/Video 1 (see Table 1).wav", sr=22050)
 
 # 2. Le hachoir (Fenêtre glissante)

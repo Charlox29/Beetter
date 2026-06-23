@@ -4,6 +4,7 @@
 
 #include "BeetterWAV.h"
 #include "../BeetterConfig.h"
+#include <time.h>   // time(), gmtime_r() pour le repli horloge système
 
 void BeetterWAV::begin(uint8_t bclk, uint8_t ws, uint8_t din,
                         uint32_t sampleRate) {
@@ -25,21 +26,35 @@ void BeetterWAV::enregistrerSiNecessaire(uint32_t seqCycle, BeetterRTC& rtc) {
     if (seqCycle == 0 || (seqCycle % WAV_EVERY_CYCLES) != 0) return;
 
     char chemin[64];
-    if (rtc.isReady()) {
-        // Nom basé sur l'horodatage complet (secondes incluses)
+    DateTime now;
+    if (rtc.lireValide(now)) {
+        // Nom basé sur l'horodatage RTC validé (secondes incluses)
         // → pas de doublon même après un redémarrage au même cycle
         // Format : /wav/B001_20260616_132700.wav
-        DateTime now = rtc.maintenant();
         snprintf(chemin, sizeof(chemin),
                  "/wav/%s_%04d%02d%02d_%02d%02d%02d.wav",
                  BEETTER_HIVE_ID,
                  now.year(), now.month(), now.day(),
                  now.hour(), now.minute(), now.second());
     } else {
-        // Fallback sans RTC : utiliser millis() comme discriminant
-        snprintf(chemin, sizeof(chemin),
-                 "/wav/%s_%lu.wav",
-                 BEETTER_HIVE_ID, (unsigned long)millis());
+        // Lecture RTC invalide (glitch I2C) : on n'invente JAMAIS de date.
+        // Repli sur l'horloge système (calée sur le RTC au démarrage),
+        // suffixe _SYS pour tracer l'origine de l'horodatage.
+        time_t t = time(nullptr);
+        struct tm tmv;
+        gmtime_r(&t, &tmv);
+        if (tmv.tm_year + 1900 >= 2024) {
+            snprintf(chemin, sizeof(chemin),
+                     "/wav/%s_%04d%02d%02d_%02d%02d%02d_SYS.wav",
+                     BEETTER_HIVE_ID,
+                     tmv.tm_year + 1900, tmv.tm_mon + 1, tmv.tm_mday,
+                     tmv.tm_hour, tmv.tm_min, tmv.tm_sec);
+        } else {
+            // Aucune horloge fiable : discriminant millis() (dernier recours)
+            snprintf(chemin, sizeof(chemin),
+                     "/wav/%s_NOCLK_%lu.wav",
+                     BEETTER_HIVE_ID, (unsigned long)millis());
+        }
     }
 
     Serial.printf("[WAV] Enregistrement → %s (%ds)\n", chemin, WAV_DUREE_SEC);

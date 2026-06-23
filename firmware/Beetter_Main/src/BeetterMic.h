@@ -54,11 +54,11 @@ public:
     bool begin(uint8_t bclk, uint8_t ws, uint8_t din, uint32_t fs = 8000);
 
     /**
-     * Analyse le canal intérieur (gauche).
+     * Analyse le canal intérieur (droit, J5, SEL=3.3V).
      *
      * @param dureeCaptureMs  Durée de capture audio en ms (ex. 3000)
      * @param fMin            Fréquence basse d'intérêt en Hz (ex. 50)
-     * @param fMax            Fréquence haute d'intérêt en Hz (ex. 600)
+     * @param fMax            Fréquence haute d'intérêt en Hz (ex. 2000)
      * @param nbCoeffs        Nombre de coefficients MFCC (1..13, défaut 13)
      * @return ResultatAudio
      */

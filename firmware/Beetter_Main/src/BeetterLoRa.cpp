@@ -145,7 +145,7 @@ bool BeetterLoRa::envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
     }
     aud.crc16 = crc16((uint8_t*)&aud, SIZE_AUD - 2);
 
-    // ── Concaténer ENV + AUD → 1 trame de 96 bytes ──
+    // ── Concaténer ENV + AUD → 1 trame de 100 bytes ──
     uint8_t buf[SIZE_ENV + SIZE_AUD];
     memcpy(buf,           &env, SIZE_ENV);
     memcpy(buf + SIZE_ENV, &aud, SIZE_AUD);

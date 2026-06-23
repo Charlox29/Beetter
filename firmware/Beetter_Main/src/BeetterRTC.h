@@ -87,6 +87,27 @@ public:
     void afficher();
 
     /**
+     * Lecture RTC *validée* : rejette les trames I2C corrompues
+     * (année hors [2024..2099], mois/jour/heure incohérents) qui
+     * produisaient des noms de fichiers aberrants (ex. 20594300_...).
+     * @param out  rempli uniquement si la lecture est plausible
+     * @return true si la date lue est valide
+     */
+    bool lireValide(DateTime& out);
+
+    /**
+     * Cale l'horloge système de l'ESP32 (settimeofday) sur le RTC.
+     * INDISPENSABLE : la bibliothèque SD horodate les fichiers FAT via
+     * time(), PAS via le PCF8523. Sans cet appel, et en l'absence de NTP
+     * (WiFi indisponible sur le terrain), les dates « modifié le » des
+     * fichiers retombent au plancher FAT (1980-01-01) à chaque démarrage.
+     * À appeler AVANT toute écriture SD, puis après chaque sync NTP.
+     * Fixe aussi TZ=UTC0 pour que les dates FAT soient en UTC, cohérentes
+     * avec les horodatages des noms de fichiers et des CSV.
+     */
+    void synchroniserHorlogeSysteme();
+
+    /**
      * @return true si le RTC a perdu l'alimentation (pile morte ou premier démarrage).
      *         Dans ce cas, l'heure est incorrecte et doit être reconfigurée.
      */

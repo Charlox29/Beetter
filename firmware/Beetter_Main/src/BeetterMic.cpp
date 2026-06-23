@@ -7,11 +7,11 @@
  *  1. Capture I2S stéréo → extraction d'un canal
  *  2. Fenêtrage de Hamming sur N_FFT échantillons
  *  3. FFT → spectre de magnitude
- *  4. Filtrage : on ne conserve que [fMin, fMax]
- *  5. Banque de N filtres triangulaires en échelle Mel
- *  6. Log de l'énergie par filtre
- *  7. DCT → coefficients MFCC
- *  8. Extraction fréquence dominante et énergie RMS
+ *  4. Banque de 26 filtres triangulaires en échelle Mel (bande fixe 80–4000 Hz)
+ *  5. Log de l'énergie par filtre
+ *  6. DCT → coefficients MFCC
+ *  7. Recherche du pic dominant dans la bande [fMin, fMax] fournie par l'appelant
+ *  8. Calcul de l'énergie RMS
  * =============================================================
  */
 

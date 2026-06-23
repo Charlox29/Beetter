@@ -94,14 +94,14 @@ URL boards manager :
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Cycle complet (~9.5s actif + ~20.5s attente)                   │
+│  Cycle complet : ~6.3s actif (~21.3s avec WAV)                 │
 │                                                                  │
 │  1. SHT40 INT + EXT      ~20 ms   T°, %RH, humidité absolue    │
 │  2. Photorésistance        ~5 ms   ADC brut + indice 0.0–10.0   │
 │  3. MFCC intérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  4. MFCC extérieur      ~3050 ms   11 fenêtres × 2048 samples  │
 │  5. Écriture SD           ~15 ms   3 fichiers CSV (1 ouverture) │
-│  6. Envoi LoRa           ~180 ms   ENV+AUD 100 bytes, DC 0.60%  │
+│  6. Envoi LoRa           ~176 ms   ENV+AUD 100 bytes, DC 0.60%  │
 │  7. [WAV si cycle×20]  ~15 000 ms   clip stéréo 15s sur SD     │
 │  8. Attente               reste    jusqu'à t=30s depuis début   │
 │                                                                  │
@@ -210,9 +210,9 @@ L'indice est **logarithmique** pour refléter la perception humaine. Table de co
 | Situation | ADC mesuré | Lux calculé | Indice |
 |---|---|---|---|
 | Bureau éclairé (point de calibration) | 2642 | 300 lux | 5.0/10 |
-| LED téléphone à 20 cm | 3157 | 1101 lux | 6.1/10 |
-| À l'ombre intérieure | 1073 | 44 lux | 3.3/10 |
-| Luminosité naturelle intérieure | 1996 | 181 lux | 4.5/10 |
+| LED téléphone à 20 cm | 3157 | 723 lux | 5.7/10 |
+| À l'ombre intérieure | 1073 | 29 lux | 3.0/10 |
+| Luminosité naturelle intérieure | 1996 | 119 lux | 4.2/10 |
 
 ---
 
@@ -286,7 +286,7 @@ Atténuation : `WAV_GAIN_SHIFT = 3` → -18 dB (adapté au bruit de ruche)
 
 Volume WAV : 0.46 MB/clip × 144 clips/jour = **66 MB/jour → 249 jours sur 16 Go**
 
-Nom de fichier : `/wav/B001_20260616_1327_c0020.wav`
+Nom de fichier : `/wav/B001_20260616_132700.wav`
 
 Le clip WAV est enregistré **pendant l'attente du duty cycle** — il ne retarde pas les mesures.
 
@@ -300,7 +300,7 @@ l'ESP32 si le programme se bloque plus de `WDT_TIMEOUT_SEC` secondes.
 ```
 setup()  → watchdog armé à 60s
 loop()   → esp_task_wdt_reset() en début de cycle  ← "je suis vivant"
-           [mesures + WAV : ~25s max]
+           [mesures + WAV : ~21s max]
            [attente : reste du cycle]
            → retour loop() dans les 60s → OK
 
@@ -308,7 +308,7 @@ Si blocage (bus I2S gelé, SD bloquée...) → redémarrage automatique
 ```
 
 `WDT_TIMEOUT_SEC = 60` — configurable dans `BeetterConfig.h`.
-Dimensionné pour couvrir le pire cas : cycle complet avec WAV (~25s) + marge.
+Dimensionné pour couvrir le pire cas : cycle complet avec WAV (~21s) + marge.
 
 ---
 
@@ -332,38 +332,42 @@ Le RTC PCF8523 stocke **toujours l'heure UTC**. Tous les timestamps CSV et LoRa 
 
 Utilisé **uniquement au démarrage** pour synchroniser le RTC via NTP, puis déconnecté immédiatement (~40 mA économisés en continu). Si le WiFi est indisponible, le démarrage continue normalement avec l'heure de compilation.
 
-Le **Bluetooth LE** est désactivé pour économiser ~15 mA et de la mémoire RAM. La bibliothèque `BeetterWifi` inclut le support BLE (NimBLE-Arduino optionnel) — réactivable si nécessaire via `wifi.demarrerBLE(BT_DEVICE_NAME)` dans `Beetter_Main.ino`.
+Le **Bluetooth LE est désactivé** (`wifi.demarrerBLE()` commenté dans `Beetter_Main.ino`) pour économiser ~15 mA et réduire l'empreinte mémoire. Pour le réactiver (configuration terrain via nRF Connect), décommenter la ligne correspondante dans `setup()`.
 
 ---
 
 ## Beetter Home – Récepteur Python (Raspberry Pi)
 
-Le script `lora/receiver.py` écoute les trames binaires des nœuds ESP32 via un module **Grove LoRa 868 MHz** connecté en série (`/dev/ttyAMA10` sur RPi 5, `/dev/serial0` sur les modèles précédents), les décode (blocs ENV et AUD) et envoie chaque relevé à l'API Flask locale via `POST /api/data`.
-
 ### Prérequis
 
 ```bash
-cd lora
-pip install -r requirements.txt
+pip3 install pyserial influxdb-client
 ```
 
 ### Lancement
 
 ```bash
-# Affichage console seulement
-python3 receiver.py
-
-# Avec envoi vers l'API Flask
-API_ENABLE=1 BEETTER_API_URL=http://localhost:5000 python3 receiver.py
+python3 receiver.py                    # affichage console
+INFLUX_ENABLE=1 INFLUX_TOKEN=xxx python3 receiver.py   # + InfluxDB
 ```
 
-### Variables d'environnement
+### Configuration (`receiver.py`)
 
-| Variable | Défaut | Description |
+```python
+PORT      = "/dev/serial0"   # GPIO UART — ou "/dev/ttyUSB0" pour USB-UART
+FREQUENCE = 868.0            # MHz — doit correspondre à BeetterConfig.h
+```
+
+### Champs InfluxDB (nomenclature `influxdb.py` beetter.fr)
+
+| Measurement | Source | Unité |
 |---|---|---|
-| `API_ENABLE` | `0` | Activer l'envoi vers l'API Flask (`1` pour activer) |
-| `BEETTER_API_URL` | `http://localhost:5000` | URL de base de l'app Flask |
-| `BEETTER_API_TIMEOUT` | `5` | Timeout (secondes) des requêtes HTTP |
+| `temperature_int` / `temperature_ext` | SHT40 | °C |
+| `humidity_int` / `humidity_ext` | SHT40 | %RH |
+| `sound_freq_int` / `sound_freq_ext` | MFCC – moyenne 11 fenêtres | Hz |
+| `sound_amp_int` / `sound_amp_ext` | MFCC – RMS moyen 11 fenêtres | — |
+| `light_ext` | GL5539 | indice 0.0–10.0 |
+| `mfcc_int_0..12` / `mfcc_ext_0..12` | MFCC – moyennes 11 fenêtres | — |
 
 ---
 

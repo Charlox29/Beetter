@@ -61,7 +61,7 @@ def run_pretrain(args):
         log.error("Only %d rows — need at least 200 to train meaningfully.", len(df))
         log.error("Run:  python tools/simulate.py --burst 2000  then re-export.")
         return
-
+    
     # ── 2. Quick sanity check on the data ────────────────────────────────────
     log.info("Data snapshot:")
     check_cols = {

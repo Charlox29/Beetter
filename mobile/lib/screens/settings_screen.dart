@@ -79,7 +79,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   icon: Icons.person_outline,
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.person_circle, color: kAmberDark),
+                      leading: const Icon(Icons.account_circle, color: kAmberDark),
                       title: Text(username,
                           style: const TextStyle(fontWeight: FontWeight.w600)),
                       subtitle: const Text('Logged in'),

@@ -1,4 +1,4 @@
-package fr.esiee.beetter
+package com.example.beetter
 
 import io.flutter.embedding.android.FlutterActivity
 

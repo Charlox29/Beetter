@@ -1,0 +1,29 @@
+# IA/inference/requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencies for inference_worker.py
+#
+# IMPORTANT — install in this order:
+#
+# Step 1 — Activate the IA venv:
+#   python -m venv .venv
+#   source .venv/bin/activate
+#
+# Step 2 — Install PyTorch CPU-only (no CUDA/nvidia packages):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#
+# Step 3 — Install remaining dependencies:
+#   pip install -r inference/requirements.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# InfluxDB client — reads from sensors bucket, writes to anomaly bucket
+influxdb-client>=1.36.0
+
+# Numerical computing — used by the model and normalizer
+numpy>=1.24.0
+
+# Environment variable loading — reads credentials from app/.env
+python-dotenv>=1.0.0
+
+# NOTE: torch is intentionally excluded from this file.
+# Install it manually with the CPU-only index (see instructions above)
+# to avoid downloading nvidia/CUDA packages (~2GB) unnecessarily.

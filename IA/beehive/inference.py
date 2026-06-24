@@ -104,7 +104,7 @@ class BeehiveInference:
         self._preswarm_hist: collections.deque[float] = collections.deque(
             maxlen=cfg.alert_n_consecutive
         )
-        self._preswarm_idx = HIVE_STATES.index("pre_swarming")  # = 1
+        self._preswarm_idx = HIVE_STATES.index("anomaly")  # = 1 (change back to preswarm after)
 
     # ── Main inference entry point ────────────────────────────────────────────
 
@@ -258,3 +258,10 @@ def run_smoke_test(model_path: str, norm_in_path: str, norm_out_path: str) -> No
     result = engine.infer(raw)
     print(result)
     print(f"Smoke test passed. Prediction: {result.label}")
+
+if __name__ == "__main__":
+    run_smoke_test(
+        model_path    = "checkpoints/finetune_best.pt",
+        norm_in_path  = "calibration/norm_in.json",
+        norm_out_path = "calibration/norm_out.json",
+    )

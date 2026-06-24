@@ -15,13 +15,14 @@ from typing import List
 # Changing this order would break any saved model — add new classes at the end.
 HIVE_STATES: List[str] = [
     "normal",            # 0  stable hum 200–400 Hz, inside T° ~34°C
-    "pre_swarming",      # 1  rising 350–500 Hz, inside T° climbing, 2–4 h before swarm
-    "swarming",          # 2  ~500 Hz spike, outside audio surges as bees leave
-    "queen_competition", # 3  tooting (350–500 Hz sweep) + quacking (200–350 Hz constant)
-    "queenless",         # 4  ~350 Hz, long-term T° instability
-    "attack",            # 5  500–700 Hz sudden spike, guard bee piping
+    #"pre_swarming",      # 1  rising 350–500 Hz, inside T° climbing, 2–4 h before swarm
+    #"swarming",          # 2  ~500 Hz spike, outside audio surges as bees leave
+    #"queen_competition", # 3  tooting (350–500 Hz sweep) + quacking (200–350 Hz constant)
+    #"queenless",         # 4  ~350 Hz, long-term T° instability
+    #"attack",            # 5  500–700 Hz sudden spike, guard bee piping
+    "anomaly",           # 1  catch-all for any unusual audio pattern
 ]
-NUM_CLASSES = len(HIVE_STATES)   # 6
+NUM_CLASSES = len(HIVE_STATES)   # 6 (2 for now)
 
 
 @dataclass
@@ -106,8 +107,9 @@ class LoRaPacketConfig:
             uint8_t  anomaly_flag;   // bitmask: bit0=RMS spike, bit1=freq>450Hz, bit2=ΔT>16°C
         } lora_payload_t;            // 31 bytes
     """
-    struct_fmt: str = "<HbbBBbbBBhhhhhhhhhhB"
-    size_bytes: int = 31
+    # NEW — 13 mfcc_in + 13 mfcc_out = 26 h fields, total frame = 53 bytes
+    struct_fmt='<BI4sIhHhHHH BI4sIHHHH13h13hH'
+    size_bytes: int = 96
 
 
 # ── Feature names (17-d vector per sensor, matches ModelConfig.input_dim) ─────

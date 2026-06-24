@@ -44,11 +44,17 @@
 </head>
 <body>
 
+    <!-- ══════════════════════ INDICATEUR DE SCROLL ══════════════════════ -->
+    <!-- Fine barre fixée au tout en haut de l'écran, se remplit selon la progression de lecture (voir main.js). -->
+    <div class="scroll-progress-track" aria-hidden="true">
+        <div class="scroll-progress-bar" id="scroll-progress-bar"></div>
+    </div>
+
     <!-- ══════════════════════ NAVBAR ══════════════════════ -->
     <!-- Main site navigation with logo, section anchors, language and theme toggles. -->
     <nav class="navbar">
         <a href="#" class="logo">
-            <img src="img/Logo_Beetter.svg" alt="Logo_Beetter" class="logo-img">
+            <img src="img/Logo_Beetter.svg" width="179" height="87" alt="Logo_Beetter" class="logo-img">
         </a>
 
         <!-- Scrim overlay (mobile) -->
@@ -97,22 +103,22 @@
     <section id="contexte" class="stats-banner" aria-label="Chiffres clés">
         <div class="container grid-3">
             <div class="stat-item">
-                <p class="stat-value">1,45 M</p>
+                <p class="stat-value" data-target="1.45" data-suffix=" M" data-decimals="2">1,45 M</p>
                 <p class="lang-fr stat-label">Colonies en France</p>
                 <p class="lang-en stat-label">Colonies in France</p>
             </div>
             <div class="stat-item">
-                <p class="stat-value">25 %</p>
+                <p class="stat-value" data-target="25" data-suffix=" %">25 %</p>
                 <p class="lang-fr stat-label">Mortalité Annuelle</p>
                 <p class="lang-en stat-label">Annual Mortality</p>
             </div>
             <div class="stat-item">
-                <p class="stat-value">57 500</p>
+                <p class="stat-value" data-target="57500" data-suffix="" data-format="space">57 500</p>
                 <p class="lang-fr stat-label">Apiculteurs en France</p>
                 <p class="lang-en stat-label">Beekeepers in France</p>
             </div>
             <div class="stat-item">
-                <p class="stat-value">~200 €</p>
+                <p class="stat-value" data-target="200" data-prefix="~" data-suffix=" €">~200 €</p>
                 <p class="lang-fr stat-label">Coût Solution Beetter</p>
                 <p class="lang-en stat-label">Beetter Solution Cost</p>
             </div>
@@ -194,7 +200,7 @@
             <div class="installation-gallery">
 
             <figure class="gallery-item gallery-item--wide">
-                    <img src="img/beetter_hive_home.png" alt="Prototype Beetter Hive et Beetter Home — carte électronique, panneau solaire et passerelle LoRa" loading="lazy">
+                    <img src="img/beetter_hive_home.webp" width="1457" height="1085" alt="Prototype Beetter Hive et Beetter Home — carte électronique, panneau solaire et passerelle LoRa" loading="lazy">
                     <figcaption>
                         <span class="lang-fr">Prototype complet : module Beetter Hive et Beetter Home</span>
                         <span class="lang-en">Full prototype: Beetter Hive module and Beetter Home</span>
@@ -290,21 +296,21 @@
 
                 <!-- Vue Tableau de bord principal -->
                 <figure class="gallery-item gallery-item--wide lang-fr">
-                    <img src="img/dash1fr.png" alt="Tableau de bord Beetter — vue d'ensemble des ruches avec statuts Critique, Avertissement et Calme" loading="lazy">
+                    <img src="img/dash1fr.webp" width="1920" height="873" alt="Tableau de bord Beetter — vue d'ensemble des ruches avec statuts Critique, Avertissement et Calme" loading="lazy">
                     <figcaption>Vue d'ensemble : Tableau de bord - statuts en temps réel de la flotte</figcaption>
                 </figure>
                 <figure class="gallery-item gallery-item--wide lang-en">
-                    <img src="img/dash1en.png" alt="Beetter Dashboard — fleet overview with Critical, Warning, and Calm status" loading="lazy">
+                    <img src="img/dash1en.webp" width="1920" height="1080" alt="Beetter Dashboard — fleet overview with Critical, Warning, and Calm status" loading="lazy">
                     <figcaption>Overview : Dashboard - real-time fleet status</figcaption>
                 </figure>
 
                 <!-- Vue détail d'une ruche -->
                 <figure class="gallery-item gallery-item--wide gallery-item--detail lang-fr">
-                    <img src="img/dash2fr.png" alt="Détail d'une ruche Beetter — graphes température et humidité, carte de localisation" loading="lazy">
+                    <img src="img/dash2fr.webp" width="1920" height="1080" alt="Détail d'une ruche Beetter — graphes température et humidité, carte de localisation" loading="lazy">
                     <figcaption>Vue détaillée : Graphes température, humidité et localisation GPS d'une ruche</figcaption>
                 </figure>
                 <figure class="gallery-item gallery-item--wide gallery-item--detail lang-en">
-                    <img src="img/dash2en.png" alt="Beetter hive detail — temperature and humidity charts, location map" loading="lazy">
+                    <img src="img/dash2en.webp" width="1920" height="1080" alt="Beetter hive detail — temperature and humidity charts, location map" loading="lazy">
                     <figcaption>Detail view : Temperature &amp; humidity charts and GPS location of a hive</figcaption>
                 </figure>
 
@@ -378,22 +384,24 @@
             </p>
         </div>
 
+        <div class="container">
         <div class="installation-gallery">
                 <figure class="gallery-item">
-                    <img src="img/installation_1.png" alt="Apiculteurs inspectant les ruches lors de l'installation du module Beetter" loading="lazy">
+                    <img src="img/installation_1.webp" width="698" height="1252" alt="Apiculteurs inspectant les ruches lors de l'installation du module Beetter" loading="lazy">
                     <figcaption>
                         <span class="lang-fr">Inspection des ruches </span>
                         <span class="lang-en">Hive inspection</span>
                     </figcaption>
                 </figure>
                 <figure class="gallery-item">
-                    <img src="img/installation_2.png" alt="Installation électronique du module Beetter Hive dans la ruche" loading="lazy">
+                    <img src="img/installation_2.webp" width="696" height="1252" alt="Installation électronique du module Beetter Hive dans la ruche" loading="lazy">
                     <figcaption>
                         <span class="lang-fr">Installation de Beetter Hive</span>
                         <span class="lang-en">Beetter Hive installation</span>
                     </figcaption>
                 </figure>
 
+        </div>
         </div>
     </section>
 
@@ -529,7 +537,7 @@
                     <a href="mini-jeu.html" class="cta-button lang-en">🎮 Protect the Hive: Mini-game</a>
                 </div>
                 <div class="game-image">
-                    <img src="img/vespa_velutina.jpg" alt="Frelon asiatique - Vespa velutina" class="vespa-img">
+                    <img src="img/vespa_velutina.jpg" width="276" height="183" alt="Frelon asiatique - Vespa velutina" class="vespa-img">
                 </div>
             </div>
         </div>
@@ -562,14 +570,14 @@
 
                 <a href="docs/JDP_Affiche_Beetter_2026.pdf" target="_blank" rel="noopener noreferrer" class="resource-btn resource-btn-secondary">
                     <span aria-hidden="true">🖼️</span>
-                    <span class="lang-fr">JDP Affiche Beetter</span>
-                    <span class="lang-en">JDP Beetter Poster</span>
+                    <span class="lang-fr">Poster JDP</span>
+                    <span class="lang-en">JDP Poster</span>
                 </a>
 
                 <a href="https://www.youtube.com/watch?v=NE_tEkQl7Ec" target="_blank" rel="noopener noreferrer" class="resource-btn resource-btn-secondary">
                     <span aria-hidden="true">▶️</span>
-                    <span class="lang-fr">Vidéo Présentation</span>
-                    <span class="lang-en">Presentation Video</span>
+                    <span class="lang-fr">Vidéo</span>
+                    <span class="lang-en">Video</span>
                 </a>
             </div>
         </div>
@@ -579,7 +587,7 @@
     <footer>
         <div class="container footer-content">
             <div class="footer-logo">
-                <img src="img/Logo_Beetter.svg" alt="Logo_Beetter" class="logo-img-footer">
+                <img src="img/Logo_Beetter.svg" width="179" height="87" alt="Logo_Beetter" class="logo-img-footer">
             </div>
             <p class="lang-fr">Projet E3 - ESIEE Paris 2025-2026</p>
             <p class="lang-en">E3 Project - ESIEE Paris 2025-2026</p>

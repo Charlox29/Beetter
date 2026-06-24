@@ -1,0 +1,28 @@
+# IA/inference/requirements_inference.txt
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencies for inference_worker.py
+#
+# Install with:
+#   pip install -r requirements_inference.txt
+#
+# On Raspberry Pi (system Python, no venv):
+#   pip install -r requirements_inference.txt --break-system-packages
+#
+# On Raspberry Pi (inside the IA .venv — recommended):
+#   source ../venv/bin/activate
+#   pip install -r requirements_inference.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# PyTorch — CPU-only build (sufficient for inference, much lighter than full torch)
+# On Raspberry Pi 64-bit OS, install via:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch
+
+# InfluxDB client — reads from sensors bucket, writes to anomaly bucket
+influxdb-client>=1.36.0
+
+# Numerical computing — used by the model and normalizer
+numpy>=1.24.0
+
+# Environment variable loading — reads credentials from app/.env
+python-dotenv>=1.0.0

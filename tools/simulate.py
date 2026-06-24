@@ -114,15 +114,15 @@ LIGHT_DAY_MAX   = 3.0
 # Individual --temp-int etc. flags still take priority over presets.
 PRESETS = {
     'calm': {
-        'temperature_int': 35.0,
+        'temperature_int': 30.0,
         'temperature_ext': 20.0,
-        'humidity_int':    63.0,
-        'humidity_ext':    68.0,
-        'sound_freq_int':  240.0,
+        'humidity_int':    55.0,
+        'humidity_ext':    63.0,
+        'sound_freq_int':  180.0,
         'sound_amp_int':   0.35,
         'sound_freq_ext':  115.0,
         'sound_amp_ext':   0.10,
-        'light_ext':       1.5,
+        'light_ext':       3.0,
         '_description':    'Ruche calme — valeurs normales',
     },
     'warning': {

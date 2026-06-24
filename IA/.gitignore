@@ -1,6 +1,4 @@
 # Training outputs — never commit these
-checkpoints/
-calibration/
 tsne/
 data/
 cluster_output/

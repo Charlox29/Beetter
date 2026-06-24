@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/beehives_provider.dart';
@@ -16,6 +17,21 @@ class HiveDetailScreen extends ConsumerStatefulWidget {
 
 class _HiveDetailScreenState extends ConsumerState<HiveDetailScreen> {
   String _range = '24h';
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      ref.invalidate(hiveChartProvider((id: widget.hiveId, range: _range)));
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {

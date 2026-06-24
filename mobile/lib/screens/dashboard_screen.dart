@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,11 +7,41 @@ import '../providers/beehives_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/beehive_card.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  Timer? _timer;
+  DateTime _lastUpdated = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      ref.invalidate(beehivesProvider);
+      setState(() => _lastUpdated = DateTime.now());
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _formatTime(DateTime t) {
+    final h = t.hour.toString().padLeft(2, '0');
+    final m = t.minute.toString().padLeft(2, '0');
+    final s = t.second.toString().padLeft(2, '0');
+    return '$h:$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final hivesAsync = ref.watch(beehivesProvider);
     final username = ref.watch(authProvider).username ?? '';
 
@@ -21,7 +52,10 @@ class DashboardScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Refresh',
-            onPressed: () => ref.invalidate(beehivesProvider),
+            onPressed: () {
+              ref.invalidate(beehivesProvider);
+              setState(() => _lastUpdated = DateTime.now());
+            },
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
@@ -32,7 +66,10 @@ class DashboardScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         color: kAmberDark,
-        onRefresh: () async => ref.invalidate(beehivesProvider),
+        onRefresh: () async {
+          ref.invalidate(beehivesProvider);
+          setState(() => _lastUpdated = DateTime.now());
+        },
         child: hivesAsync.when(
           loading: () => const Center(
             child: CircularProgressIndicator(color: kAmberDark),
@@ -54,7 +91,10 @@ class DashboardScreen extends ConsumerWidget {
                   ElevatedButton.icon(
                     icon: const Icon(Icons.refresh),
                     label: const Text('Retry'),
-                    onPressed: () => ref.invalidate(beehivesProvider),
+                    onPressed: () {
+                      ref.invalidate(beehivesProvider);
+                      setState(() => _lastUpdated = DateTime.now());
+                    },
                   ),
                 ],
               ),
@@ -102,6 +142,14 @@ class DashboardScreen extends ConsumerWidget {
                       hive: hive,
                       onTap: () => context.push('/hive/${hive.id}'),
                     ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    'Updated at ${_formatTime(_lastUpdated)} · auto-refresh 30 s',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 11, color: kMuted),
                   ),
                 ),
               ],

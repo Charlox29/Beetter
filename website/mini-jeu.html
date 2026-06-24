@@ -37,7 +37,7 @@
         </div>
     </nav>
 
-    <section class="section">
+    <section class="section game-section">
         <div class="container">
                 <br>
                 <div class="section-header">
@@ -84,38 +84,16 @@
         <div class="game-over-box">
             <h2 class="lang-fr">🐝 Partie terminée !</h2>
             <h2 class="lang-en">🐝 Game over !</h2>
-            <div class="final-score" id="final-score">0</div>
-            <p class="lang-fr game-over-subtitle">frelons éliminés</p>
-            <p class="lang-en game-over-subtitle">hornets eliminated</p>
-            
-            <!-- Grille de statistiques -->
-            <div class="game-stats-grid">
-                <div class="game-stat-item">
-                    <div class="game-stat-label lang-fr">Meilleur Combo</div>
-                    <div class="game-stat-label lang-en">Best Combo</div>
-                    <div class="game-stat-value" id="stat-best-combo">0</div>
+            <!-- Score final et meilleur score -->
+            <div class="final-score-block">
+                <div class="final-score" id="final-score">0</div>
+                <p class="lang-fr game-over-subtitle">points</p>
+                <p class="lang-en game-over-subtitle">points</p>
+                <div class="best-score-row">
+                    <span class="lang-fr">🏆 Meilleur score : </span>
+                    <span class="lang-en">🏆 Best score: </span>
+                    <strong id="best-score-display">0</strong>
                 </div>
-                <div class="game-stat-item">
-                    <div class="game-stat-label lang-fr">Vague Atteinte</div>
-                    <div class="game-stat-label lang-en">Wave Reached</div>
-                    <div class="game-stat-value" id="stat-wave">1</div>
-                </div>
-                <div class="game-stat-item">
-                    <div class="game-stat-label lang-fr">Abeilles Touchées</div>
-                    <div class="game-stat-label lang-en">Bees Hit</div>
-                    <div class="game-stat-value" id="stat-bees-hit">0</div>
-                </div>
-                <div class="game-stat-item">
-                    <div class="game-stat-label lang-fr">Temps Survécu</div>
-                    <div class="game-stat-label lang-en">Time Survived</div>
-                    <div class="game-stat-value" id="stat-time">60s</div>
-                </div>
-            </div>
-
-            <!-- Badge record personnel -->
-            <div id="record-banner" class="record-badge is-hidden">
-                <span class="lang-fr">🏆 Nouveau record personnel !</span>
-                <span class="lang-en">🏆 New personal record!</span>
             </div>
 
             <button id="restart-btn" class="game-btn">

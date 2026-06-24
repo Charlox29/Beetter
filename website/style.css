@@ -93,7 +93,12 @@ body {
     overflow-y: auto;
 }
 
-body.no-scroll { overflow: hidden; }
+body.no-scroll {
+    overflow: hidden;
+    position: fixed;
+    width: 100%;
+    touch-action: none;
+}
 
 /* ═══════════════════════════════════════════════════════════ */
 /* 2. LAYOUT */
@@ -126,6 +131,26 @@ body.no-scroll { overflow: hidden; }
     z-index: 1000;
     border-bottom: 2px solid var(--accent);
     transition: background 0.3s ease;
+}
+
+/* Indicateur de progression de scroll : fine barre au-dessus de tout
+   (z-index supérieur à la navbar), se remplit de 0 à 100% selon la
+   position de lecture sur la page (voir main.js). */
+.scroll-progress-track {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    z-index: 1001;
+    pointer-events: none;
+}
+
+.scroll-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--shadow-accent);
 }
 
 .logo-img {
@@ -226,8 +251,8 @@ body.no-scroll { overflow: hidden; }
     justify-content: center;
     background: transparent;
     color: var(--accent);
-    border: 1px solid var(--accent);
-    padding: 0.55rem 1rem;
+    border: 2px solid var(--accent);
+    padding: 0.5rem 1.1rem;
     font-size: 0.9rem;
     border-radius: 20px;
     min-width: 0;
@@ -235,13 +260,6 @@ body.no-scroll { overflow: hidden; }
     text-decoration: none;
     font-weight: 700;
     transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease, color 0.2s ease;
-}
-
-.nav-link-button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 8px 15px rgba(0,0,0,0.08);
-    background-color: rgba(245,203,92,0.12);
-    color: #242423;
 }
 
 /* Bouton Retour (mini-jeu.html) et bouton FR|EN partagent le même hover harmonisé. */
@@ -666,8 +684,16 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
 
 .team-grid { 
     display: grid; 
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+    grid-template-columns: repeat(4, minmax(200px, 1fr)); 
     gap: 1.5rem; 
+    justify-items: center;
+}
+
+/* Ethan B. — 5e carte seule sur la dernière ligne, centrée sur toute la largeur */
+.team-grid .team-card:last-child {
+    grid-column: 1 / -1;
+    max-width: 260px;
+    width: 100%;
 }
 
 .team-card {
@@ -717,13 +743,24 @@ h3 { font-size: 1.05rem; margin-bottom: 0.9rem; color: var(--text-primary); }
     color: var(--text-secondary); 
 }
 
-@media (max-width: 768px) {
+@media (max-width: 900px) {
     .team-grid {
-        grid-template-columns: repeat(auto-fit, minmax(160px, 200px));
+        grid-template-columns: repeat(2, minmax(160px, 1fr));
         justify-content: center;
     }
-    .team-grid .team-card {
-        width: 100%;
+    .team-grid .team-card:last-child {
+        grid-column: 1 / -1;
+        max-width: 260px;
+    }
+}
+
+@media (max-width: 500px) {
+    .team-grid {
+        grid-template-columns: 1fr;
+    }
+    .team-grid .team-card:last-child {
+        grid-column: auto;
+        max-width: 100%;
     }
 }
 
@@ -939,6 +976,9 @@ footer {
     justify-content: center;
     gap: 1.5rem;
     margin-top: 2rem;
+    max-width: 760px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .gallery-item {
@@ -965,6 +1005,7 @@ footer {
 /* Items "normaux" (non pleine largeur) de la galerie d'installation */
 .installation-gallery .gallery-item:not(.gallery-item--wide) {
     width: 300px;
+    max-width: 45%;
     flex-shrink: 0;
 }
 
@@ -1138,7 +1179,8 @@ footer {
     font-size: 2.5rem;
     pointer-events: auto;
     user-select: none;
-    filter: hue-rotate(20deg) brightness(0.6) sepia(0.8) saturate(3) drop-shadow(0 3px 5px rgba(0,0,0,0.5));
+    filter: hue-rotate(10deg) brightness(0.75) saturate(1.8) drop-shadow(0 6px 12px rgba(255,68,68,0.45));
+    text-shadow: 0 0 10px rgba(255,68,68,0.9);
     transition: transform 0.1s;
     top: 0;
     left: 0;
@@ -1307,6 +1349,26 @@ footer {
     }
 }
 
+/* Bloc score final + meilleur score */
+.final-score-block {
+    margin: 1.5rem 0;
+}
+
+.best-score-row {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+}
+
+.best-score-row strong {
+    color: var(--accent);
+    font-size: 1.3rem;
+}
+
 /* Grille de statistiques affichée sur l'écran de fin de partie */
 .game-stats-grid {
     display: grid;
@@ -1378,6 +1440,7 @@ footer {
 /* Smooth momentum scrolling on iOS */
 html {
     scroll-behavior: smooth;
+    scroll-padding-top: 80px;
     -webkit-overflow-scrolling: touch;
     overflow-x: hidden;
     width: 100%;
@@ -1468,7 +1531,7 @@ html {
     .navbar { padding: 0.6rem 1rem; gap: 0.6rem; }
     .logo-img { height: 40px; }
     .nav-controls { gap: 0.8rem; }
-    .lang-btn { font-size: 0.8rem; padding: 0.3rem 0.6rem; }
+    .lang-btn, .nav-link-button { font-size: 0.8rem; padding: 0.3rem 0.6rem; }
     .github-link { display: none; }
 }
 
@@ -1516,19 +1579,26 @@ html {
 
 /* ── STATS BANNER MOBILE ───────────────────────────────────── */
 @media (max-width: 600px) {
+    .stats-banner {
+        padding: 0.8rem 0;
+    }
+
     .stats-banner .grid-3 {
         grid-template-columns: 1fr;
         gap: 0 !important;
     }
 
     .stat-item {
-        padding: 1.2rem 0;
+        padding: 0.7rem 0;
         border-bottom: 1px solid rgba(36,36,35,0.15);
     }
 
     .stat-item:last-child { border-bottom: none; }
 
-    .stat-item h3 { font-size: 2rem !important; }
+    .stat-value { font-size: 1.6rem; }
+    .stat-label { font-size: 0.8rem; }
+
+    .stat-item h3 { font-size: 1.6rem !important; }
 }
 
 /* ── SECTIONS MOBILE ───────────────────────────────────────── */
@@ -1602,13 +1672,15 @@ html {
 
 /* ── TEAM MOBILE ───────────────────────────────────────────── */
 @media (max-width: 600px) {
-    .team-grid { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; justify-content: center; }
+    .team-grid { grid-template-columns: repeat(2, minmax(140px, 1fr)); gap: 1rem; justify-content: center; }
+    .team-grid .team-card:last-child { grid-column: 1 / -1; max-width: 260px; }
     .team-card { padding: 1.2rem 0.8rem; }
     .team-name { font-size: 0.85rem; }
 }
 
 @media (max-width: 400px) {
     .team-grid { grid-template-columns: 1fr; }
+    .team-grid .team-card:last-child { grid-column: auto; max-width: 100%; }
 }
 
 /* ── FAQ MOBILE ─────────────────────────────────────────────── */
@@ -1634,12 +1706,14 @@ html {
 /* ── GALERIE D'INSTALLATION MOBILE ─────────────────────────── */
 @media (max-width: 700px) {
     .installation-gallery {
-        flex-direction: column;
-        align-items: stretch;
+        flex-direction: row;
+        align-items: flex-start;
         padding: 0 1rem;
+        gap: 0.75rem;
     }
     .installation-gallery .gallery-item:not(.gallery-item--wide) {
-        width: 100%;
+        width: 50%;
+        max-width: 50%;
         flex-shrink: 1;
     }
     .gallery-item--wide {
@@ -1669,18 +1743,28 @@ html {
 
 /* ── MINI-JEU MOBILE ───────────────────────────────────────── */
 @media (max-width: 768px) {
-    .hive-stage { height: auto; min-height: calc(100svh - 70px); padding: 1.5rem 0; }
-    .hive-graphic { font-size: 2.8rem; width: min(160px, 50%); }
+    /* La navbar est en position fixed : il faut un padding-top suffisant
+       pour ne pas faire passer le sous-titre dessous (cf. .section mobile
+       générique qui utilise la même valeur 5.5rem). L'ancien
+       "padding: 0 !important" supprimait aussi cette marge de sécurité. */
+    .game-section { padding: 5.5rem 0 1.5rem; }
+    /* Le game-section occupe toute la hauteur d'écran restante (padding
+       inclus grâce à box-sizing: border-box), et son container s'étire
+       en flex pour que le hive-stage prenne l'espace restant sous le
+       sous-titre et y centre son contenu verticalement. */
+    .game-section { min-height: 100svh; display: flex; align-items: stretch; }
+    .game-section .container { display: flex; flex-direction: column; width: 100%; }
+    /* Le hive-stage ne doit plus forcer une hauteur proche du plein écran
+       à lui seul (c'est désormais .game-section qui s'en charge) :
+       les abeilles/frelons volent dans des conteneurs position:fixed
+       indépendants (.bees-container, #hornets-container), donc ce
+       centrage n'affecte pas le jeu en cours, seulement l'écran de
+       démarrage / fin de partie. */
+    .hive-stage { flex: 1; height: auto; min-height: 0; max-height: none; display: flex; flex-direction: column; justify-content: center; padding: 1.5rem 0; }
+    .hive-graphic { font-size: 2rem; width: min(120px, 40%); padding: 0.5rem 0.8rem; }
     .game-over-box { margin: 1rem; padding: 2rem 1.5rem; }
     .bee { font-size: 1.8rem; }
     .hornet { font-size: 2.2rem; }
-
-    /* Make hornets highly visible on small screens without a surrounding circle */
-    .hornet {
-        /* stronger red tint + glow and red text-halo to distinguish from bees */
-        filter: hue-rotate(10deg) brightness(0.75) saturate(1.8) drop-shadow(0 6px 12px rgba(255,68,68,0.45));
-        text-shadow: 0 0 10px rgba(255,68,68,0.9);
-    }
 }
 
 /* ── TOUCH TARGETS ─────────────────────────────────────────── */

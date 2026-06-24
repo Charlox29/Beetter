@@ -28,11 +28,29 @@ class BeehiveCard extends StatelessWidget {
                 children: [
                   const Icon(Icons.hexagon_outlined, color: kAmberDark, size: 18),
                   const SizedBox(width: 6),
-                  Text(
-                    hive.id,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          hive.name != null && hive.name!.isNotEmpty
+                              ? hive.name!
+                              : hive.id,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: kText),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (hive.name != null && hive.name!.isNotEmpty)
+                          Text(
+                            hive.id,
+                            style: const TextStyle(fontSize: 11, color: kMuted),
+                          ),
+                      ],
+                    ),
                   ),
-                  const Spacer(),
                   StatusDot(status: status, size: 11),
                 ],
               ),

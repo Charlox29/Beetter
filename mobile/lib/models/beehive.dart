@@ -65,12 +65,14 @@ class BeehiveLatest {
 
 class Beehive {
   final String id;
+  final String? name;
   final BeehiveLatest? latest;
 
-  Beehive({required this.id, this.latest});
+  Beehive({required this.id, this.name, this.latest});
 
   factory Beehive.fromJson(Map<String, dynamic> json) => Beehive(
         id: json['id'].toString(),
+        name: json['name'] as String?,
         latest: json['latest'] != null
             ? BeehiveLatest.fromJson(json['latest'])
             : null,

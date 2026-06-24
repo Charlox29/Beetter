@@ -20,10 +20,12 @@ android {
         multiDexEnabled = true
     }
     buildTypes {
-        release {
-            signingConfig = signingConfigs.getByName("debug")
-        }
+    release {
+        signingConfig = signingConfigs.getByName("debug")
+        isMinifyEnabled = false
+        isShrinkResources = false
     }
+}
 }
 kotlin {
     compilerOptions {

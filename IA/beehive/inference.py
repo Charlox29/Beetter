@@ -27,9 +27,12 @@ Typical end-to-end latency for one packet:
 """
 
 from __future__ import annotations
+from cProfile import label
 import collections
 import logging
 from dataclasses import dataclass, field
+from pyexpat import features
+from pyexpat import features
 from typing import Optional
 
 import numpy as np
@@ -182,7 +185,62 @@ class BeehiveInference:
             consecutive_preswarm=n_above,
             timestamp_min=pkt["timestamp_min"],
         )
+    def infer_from_features(self, features: dict) -> InferenceResult:
+        """
+        Run inference from a pre-decoded feature dict (17 features per sensor).
+        This is the live path used by lora/receiver.py.
 
+        Args:
+        features: dict with keys t_in_C, h_in_pct, dom_freq_in_hz, rms_in,
+        mfcc_in_0..12, t_out_C, h_out_pct, dom_freq_out_hz, rms_out,
+        mfcc_out_0..12
+        """
+        import numpy as np
+
+        vec_in = np.array([
+            features["t_in_C"], features["h_in_pct"],
+            features["dom_freq_in_hz"], np.log(max(features["rms_in"], 1e-12)),
+            *[features[f"mfcc_in_{i}"] for i in range(13)],
+        ], dtype=np.float32)
+
+        vec_out = np.array([
+            features["t_out_C"], features["h_out_pct"],
+            features["dom_freq_out_hz"], np.log(max(features["rms_out"], 1e-12)),
+            *[features[f"mfcc_out_{i}"] for i in range(13)],
+        ], dtype=np.float32)
+
+        x_in  = torch.from_numpy(self.norm_in.transform(vec_in)).unsqueeze(0).to(self.device)
+        x_out = torch.from_numpy(self.norm_out.transform(vec_out)).unsqueeze(0).to(self.device)
+
+        with torch.no_grad():
+            logits   = self.finetuner(x_in, x_out)
+            probs    = F.softmax(logits, dim=-1)
+            probs_np = probs.squeeze(0).cpu().numpy()
+
+        label_idx = int(probs_np.argmax())
+        label     = HIVE_STATES[label_idx]
+
+        anomaly_p = float(probs_np[self._preswarm_idx])
+        self._preswarm_hist.append(anomaly_p)
+
+        alert, alert_reason = False, ""
+        n_above = sum(p > self.cfg.preswarm_threshold for p in self._preswarm_hist)
+        if len(self._preswarm_hist) == self.cfg.alert_n_consecutive and n_above == len(self._preswarm_hist):
+            alert = True
+            alert_reason = (
+                f"P(anomaly) > {self.cfg.preswarm_threshold:.0%} for "
+                f"{self.cfg.alert_n_consecutive} consecutive readings "
+                f"(current: {anomaly_p:.1%})"
+            )
+
+        return InferenceResult(
+            label=label, label_idx=label_idx, probabilities=probs_np,
+            alert=alert, alert_reason=alert_reason,
+            anomaly_flag=int(features.get("anomaly_flag", 0)),
+            consecutive_preswarm=n_above,
+            timestamp_min=int(features.get("timestamp_min", 0)),
+        )
+    
     # ── Utility methods ───────────────────────────────────────────────────────
 
     def reset_alert(self) -> None:
@@ -245,14 +303,14 @@ def run_smoke_test(model_path: str, norm_in_path: str, norm_out_path: str) -> No
     fmt = LORA_PKT_CFG.struct_fmt
     raw = struct.pack(
         fmt,
-        480,                    # timestamp minutes
-        34, 18,                 # T_in, T_out
-        65, 50,                 # H_in, H_out
-        -32, -48,               # log_rms_in (0.01), log_rms_out (0.001)
-        30, 25,                 # dom_freq_in (300Hz), dom_freq_out (250Hz)
-        -50, 20, -10, 5, -3,   # mfcc_in ×10
-        -45, 18,  -8, 4, -2,   # mfcc_out ×10
-        0,                      # anomaly_flag
+        480,                                        # timestamp minutes
+        34, 18,                                     # T_in, T_out
+        65, 50,                                     # H_in, H_out
+        -32, -48,                                   # log_rms_in, log_rms_out
+        30, 25,                                     # dom_freq_in, dom_freq_out
+        -50, 20, -10, 5, -3, 2, -4, 1, 3, -2, 1, 0, -1,   # mfcc_in ×10 (13)
+        -45, 18,  -8, 4, -2, 1, -3, 2, 2, -1, 0, 1, -2,   # mfcc_out ×10 (13)
+        0,                                          # anomaly_flag
     )
 
     result = engine.infer(raw)
@@ -260,8 +318,30 @@ def run_smoke_test(model_path: str, norm_in_path: str, norm_out_path: str) -> No
     print(f"Smoke test passed. Prediction: {result.label}")
 
 if __name__ == "__main__":
-    run_smoke_test(
-        model_path    = "checkpoints/finetune_best.pt",
-        norm_in_path  = "calibration/norm_in.json",
-        norm_out_path = "calibration/norm_out.json",
-    )
+    from .model import ContrastiveBeehiveModel, BeehiveFineTuner
+    from .config import MODEL_CFG
+    import torch
+
+    backbone  = ContrastiveBeehiveModel(MODEL_CFG)
+    finetuner = BeehiveFineTuner(backbone)
+    state = torch.load("checkpoints/finetune_best.pt", map_location="cpu", weights_only=True)
+    finetuner.load_state_dict(state)
+
+    norm_in  = FeatureNormalizer.load("calibration/norm_in.json")
+    norm_out = FeatureNormalizer.load("calibration/norm_out.json")
+    engine   = BeehiveInference(finetuner, norm_in, norm_out)
+
+    # Synthetic normal-state reading
+    test_features = {
+        "t_in_C": 34.0, "h_in_pct": 60.0,
+        "dom_freq_in_hz": 300.0, "rms_in": 0.01,
+        **{f"mfcc_in_{i}": [-45, 18, -8, 4, -2, 1, -3, 2, 2, -1, 0, 1, -2][i] for i in range(13)},
+        "t_out_C": 22.0, "h_out_pct": 55.0,
+        "dom_freq_out_hz": 250.0, "rms_out": 0.005,
+        **{f"mfcc_out_{i}": [-40, 15, -7, 3, -1, 0, -2, 1, 1, 0, 1, 0, -1][i] for i in range(13)},
+        "anomaly_flag": 0, "timestamp_min": 480,
+    }
+
+    result = engine.infer_from_features(test_features)
+    print(result)
+    print(f"Smoke test passed. Prediction: {result.label}")

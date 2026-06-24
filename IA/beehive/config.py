@@ -108,8 +108,8 @@ class LoRaPacketConfig:
         } lora_payload_t;            // 31 bytes
     """
     # NEW — 13 mfcc_in + 13 mfcc_out = 26 h fields, total frame = 53 bytes
-    struct_fmt='<BI4sIhHhHHH BI4sIHHHH13h13hH'
-    size_bytes: int = 96
+    struct_fmt='<BI4sIhHhHHHBI4sIHHHH13h13hH'
+    size_bytes: int = 100
 
 
 # ── Feature names (17-d vector per sensor, matches ModelConfig.input_dim) ─────

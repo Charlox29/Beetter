@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'storage_service.dart';
 import '../models/beehive.dart';
+import '../models/alert.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -78,6 +79,26 @@ class ApiService {
         throw ApiException('Session expired — please log in again');
       }
       throw ApiException('Failed to load beehives: ${e.message}');
+    }
+  }
+
+  Future<List<Alert>> getAlerts({String period = '24h'}) async {
+    final base = await _baseUrl();
+    try {
+      final resp = await _dio.get(
+        '$base/api/alerts',
+        queryParameters: {'period': period},
+      );
+      final data = resp.data as Map<String, dynamic>;
+      return (data['alerts'] as List)
+          .map((e) => Alert.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) throw const AlertsUnavailableException();
+      if (e.response?.statusCode == 401) {
+        throw ApiException('Session expired — please log in again');
+      }
+      throw ApiException('Failed to load alerts: ${e.message}');
     }
   }
 

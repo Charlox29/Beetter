@@ -58,6 +58,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
             },
           ),
           IconButton(
+            icon: const Icon(Icons.notifications_outlined),
+            tooltip: 'Alerts',
+            onPressed: () => context.push('/alerts'),
+          ),
+          IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Settings',
             onPressed: () => context.push('/settings'),

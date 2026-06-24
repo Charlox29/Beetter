@@ -5,7 +5,6 @@ import '../providers/beehives_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/line_chart_card.dart';
 
-const _ranges = ['1h', '6h', '24h', '7d', '30d'];
 
 class HiveDetailScreen extends ConsumerStatefulWidget {
   final String hiveId;
@@ -37,10 +36,26 @@ class _HiveDetailScreenState extends ConsumerState<HiveDetailScreen> {
   Widget build(BuildContext context) {
     final args = (id: widget.hiveId, range: _range);
     final chartAsync = ref.watch(hiveChartProvider(args));
+    final hives = ref.watch(beehivesProvider).valueOrNull;
+    final beehiveName = hives
+        ?.where((h) => h.id == widget.hiveId)
+        .firstOrNull
+        ?.name;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Beehive ${widget.hiveId}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              beehiveName ?? widget.hiveId,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            if (beehiveName != null)
+              Text(widget.hiveId,
+                  style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
         leading: const BackButton(),
       ),
       body: Column(
@@ -48,26 +63,38 @@ class _HiveDetailScreenState extends ConsumerState<HiveDetailScreen> {
           // Range selector
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _ranges.map((r) {
-                  final active = r == _range;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 6),
-                    child: FilterChip(
-                      label: Text(r.toUpperCase()),
-                      selected: active,
-                      onSelected: (_) => setState(() {
-                        _range = r;
-                        ref.invalidate(hiveChartProvider(args));
-                      }),
-                      selectedColor: kAmber,
-                      checkmarkColor: Colors.black,
+            child: Row(
+              children: ['1H', '6H', '24H', '7D', '30D'].map((label) {
+                final value = label.toLowerCase();
+                final isSelected = _range == value;
+                return Expanded(
+                  child: GestureDetector(
+                    onTap: () => setState(() => _range = value),
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 3),
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? kAmberDark : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected
+                              ? kAmberDark
+                              : const Color(0xFFD1D5DB),
+                        ),
+                      ),
+                      child: Text(
+                        label,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: isSelected ? Colors.black : kMuted,
+                        ),
+                      ),
                     ),
-                  );
-                }).toList(),
-              ),
+                  ),
+                );
+              }).toList(),
             ),
           ),
           // Charts

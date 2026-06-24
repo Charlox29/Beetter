@@ -94,7 +94,7 @@ URL boards manager :
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  Cycle complet (~9.5s actif + ~20.5s attente)                   │
+│  Cycle complet : ~6.3s actif (~21.3s avec WAV)                 │
 │                                                                  │
 │  1. SHT40 INT + EXT      ~20 ms   T°, %RH, humidité absolue    │
 │  2. Photorésistance        ~5 ms   ADC brut + indice 0.0–10.0   │
@@ -210,9 +210,9 @@ L'indice est **logarithmique** pour refléter la perception humaine. Table de co
 | Situation | ADC mesuré | Lux calculé | Indice |
 |---|---|---|---|
 | Bureau éclairé (point de calibration) | 2642 | 300 lux | 5.0/10 |
-| LED téléphone à 20 cm | 3157 | 1101 lux | 6.1/10 |
-| À l'ombre intérieure | 1073 | 44 lux | 3.3/10 |
-| Luminosité naturelle intérieure | 1996 | 181 lux | 4.5/10 |
+| LED téléphone à 20 cm | 3157 | 723 lux | 5.7/10 |
+| À l'ombre intérieure | 1073 | 29 lux | 3.0/10 |
+| Luminosité naturelle intérieure | 1996 | 119 lux | 4.2/10 |
 
 ---
 
@@ -286,7 +286,7 @@ Atténuation : `WAV_GAIN_SHIFT = 3` → -18 dB (adapté au bruit de ruche)
 
 Volume WAV : 0.46 MB/clip × 144 clips/jour = **66 MB/jour → 249 jours sur 16 Go**
 
-Nom de fichier : `/wav/B001_20260616_1327_c0020.wav`
+Nom de fichier : `/wav/B001_20260616_132700.wav`
 
 Le clip WAV est enregistré **pendant l'attente du duty cycle** — il ne retarde pas les mesures.
 
@@ -300,7 +300,7 @@ l'ESP32 si le programme se bloque plus de `WDT_TIMEOUT_SEC` secondes.
 ```
 setup()  → watchdog armé à 60s
 loop()   → esp_task_wdt_reset() en début de cycle  ← "je suis vivant"
-           [mesures + WAV : ~25s max]
+           [mesures + WAV : ~21s max]
            [attente : reste du cycle]
            → retour loop() dans les 60s → OK
 
@@ -308,7 +308,7 @@ Si blocage (bus I2S gelé, SD bloquée...) → redémarrage automatique
 ```
 
 `WDT_TIMEOUT_SEC = 60` — configurable dans `BeetterConfig.h`.
-Dimensionné pour couvrir le pire cas : cycle complet avec WAV (~25s) + marge.
+Dimensionné pour couvrir le pire cas : cycle complet avec WAV (~21s) + marge.
 
 ---
 
@@ -332,7 +332,7 @@ Le RTC PCF8523 stocke **toujours l'heure UTC**. Tous les timestamps CSV et LoRa 
 
 Utilisé **uniquement au démarrage** pour synchroniser le RTC via NTP, puis déconnecté immédiatement (~40 mA économisés en continu). Si le WiFi est indisponible, le démarrage continue normalement avec l'heure de compilation.
 
-Le **Bluetooth LE** reste actif en permanence pour la configuration terrain et les notifications (nRF Connect compatible).
+Le **Bluetooth LE est désactivé** (`wifi.demarrerBLE()` commenté dans `Beetter_Main.ino`) pour économiser ~15 mA et réduire l'empreinte mémoire. Pour le réactiver (configuration terrain via nRF Connect), décommenter la ligne correspondante dans `setup()`.
 
 ---
 

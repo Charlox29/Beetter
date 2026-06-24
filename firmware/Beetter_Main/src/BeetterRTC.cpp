@@ -8,6 +8,8 @@
 #include "../BeetterConfig.h"
 #include <WiFi.h>
 #include "esp_sntp.h"
+#include <sys/time.h>   // settimeofday()
+#include <time.h>       // time(), gmtime_r(), strftime()
 
 // ─── Initialisation ──────────────────────────────────────────
 bool BeetterRTC::begin() {
@@ -37,7 +39,47 @@ bool BeetterRTC::begin() {
 // ─── Accesseurs ──────────────────────────────────────────────
 bool     BeetterRTC::isReady()     const { return _pret; }
 DateTime BeetterRTC::maintenant()        { return _rtc.now(); }
-uint32_t BeetterRTC::timestamp()         { return _rtc.now().unixtime(); }
+
+uint32_t BeetterRTC::timestamp() {
+    // Timestamp robuste : si la lecture I2C est corrompue, on retombe
+    // sur l'horloge système (calée sur le RTC au démarrage), plutôt que
+    // de propager une date aberrante dans les trames LoRa.
+    DateTime now;
+    if (lireValide(now)) return now.unixtime();
+    return (uint32_t)time(nullptr);
+}
+
+// ─── Lecture validée ─────────────────────────────────────────
+bool BeetterRTC::lireValide(DateTime& out) {
+    if (!_pret) return false;
+    DateTime n = _rtc.now();
+    // Garde-fou contre les trames I2C corrompues (bus humide / parasité)
+    if (n.year()  < 2024 || n.year()  > 2099 ||
+        n.month() < 1    || n.month() > 12   ||
+        n.day()   < 1    || n.day()   > 31   ||
+        n.hour()  > 23   || n.minute() > 59  || n.second() > 59) {
+        return false;
+    }
+    out = n;
+    return true;
+}
+
+// ─── Calage de l'horloge système sur le RTC ──────────────────
+void BeetterRTC::synchroniserHorlogeSysteme() {
+    DateTime now;
+    if (!lireValide(now)) {
+        Serial.println(F("[RTC] Horloge systeme NON calee (lecture RTC invalide)."));
+        return;
+    }
+    struct timeval tv = { .tv_sec = (time_t)now.unixtime(), .tv_usec = 0 };
+    settimeofday(&tv, nullptr);
+    setenv("TZ", "UTC0", 1);   // RTC en UTC → dates FAT en UTC (cohérent noms/CSV)
+    tzset();
+    Serial.printf("[RTC] Horloge systeme calee sur le RTC (UTC) : "
+                  "%04d-%02d-%02d %02d:%02d:%02d\n",
+                  now.year(), now.month(), now.day(),
+                  now.hour(), now.minute(), now.second());
+}
 
 bool BeetterRTC::alimentationPerdue() {
     // initialized() retourne false si le RTC n'a jamais été réglé
@@ -54,8 +96,10 @@ void BeetterRTC::regler(uint16_t annee, uint8_t mois, uint8_t jour,
 }
 
 void BeetterRTC::reglerDepuisCompilation() {
-    // __DATE__ et __TIME__ = heure locale de compilation (UTC+1 en France)
-    // On soustrait UTC_OFFSET_SEC pour stocker l'heure UTC dans le RTC
+    // __DATE__ et __TIME__ = heure locale de compilation (fuseau de la machine qui compile)
+    // On soustrait UTC_OFFSET_SEC pour stocker l'heure UTC dans le RTC.
+    // UTC_OFFSET_SEC (BeetterConfig.h) doit être ajusté selon la saison :
+    // UTC+1 en hiver (3600s) ou UTC+2 en été (7200s) pour la France.
     DateTime local(F(__DATE__), F(__TIME__));
     DateTime utc(local.unixtime() - UTC_OFFSET_SEC);
     _rtc.adjust(utc);
@@ -94,6 +138,10 @@ bool BeetterRTC::syncNTP(const char* serveurNTP,
     DateTime dt((uint32_t)now);
     _rtc.adjust(dt);
 
+    // Recaler l'horloge système ESP32 + TZ sur le RTC fraîchement réglé
+    // (cohérence des dates FAT avec les noms de fichiers).
+    synchroniserHorlogeSysteme();
+
     Serial.printf(" OK – %04d-%02d-%02d %02d:%02d:%02d\n",
                   dt.year(), dt.month(), dt.day(),
                   dt.hour(), dt.minute(), dt.second());
@@ -102,11 +150,20 @@ bool BeetterRTC::syncNTP(const char* serveurNTP,
 
 // ─── Formatage ISO 8601 ──────────────────────────────────────
 void BeetterRTC::formaterISO(char* buf) {
-    if (!_pret) { strcpy(buf, "0000-00-00 00:00:00"); return; }
-    DateTime now = _rtc.now();
-    snprintf(buf, 20, "%04d-%02d-%02d %02d:%02d:%02d",
-             now.year(), now.month(), now.day(),
-             now.hour(), now.minute(), now.second());
+    DateTime now;
+    if (_pret && lireValide(now)) {
+        snprintf(buf, 20, "%04d-%02d-%02d %02d:%02d:%02d",
+                 now.year(), now.month(), now.day(),
+                 now.hour(), now.minute(), now.second());
+    } else {
+        // RTC absent ou lecture I2C corrompue → repli sur l'horloge système
+        // (calée sur le RTC au démarrage, insensible aux glitches I2C).
+        // Évite d'écrire une date aberrante dans les CSV.
+        time_t t = time(nullptr);
+        struct tm tm_utc;
+        gmtime_r(&t, &tm_utc);
+        strftime(buf, 20, "%Y-%m-%d %H:%M:%S", &tm_utc);
+    }
 }
 
 // ─── Affichage Serial ────────────────────────────────────────

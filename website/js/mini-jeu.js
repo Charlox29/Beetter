@@ -302,42 +302,29 @@ function endGame(reason) {
     // Temps survécu
     const timeSurvived = 60 - timeRemaining;
 
-    // Résultat principal
-    finalScoreEl.textContent = hornetsKilled;
+    // Résultat principal = score réel (avec combos)
+    finalScoreEl.textContent = score;
 
-    // Stats détaillées
-    document.getElementById('stat-best-combo').textContent = bestCombo;
-    document.getElementById('stat-wave').textContent = currentWave;
-    document.getElementById('stat-bees-hit').textContent = beesTouched;
-    document.getElementById('stat-time').textContent = timeSurvived + 's';
-
-    // Record personnel
+    // Meilleur score : comparer score actuel vs record localStorage
     const previousBestScore = getBestRecord();
-    const isNewRecord = hornetsKilled > previousBestScore;
-    document.getElementById('record-banner').classList.toggle('is-hidden', !isNewRecord);
-
-    saveStats();
+    saveStats(); // saveStats utilise déjà `score`
+    const bestScoreDisplay = document.getElementById('best-score-display');
+    if (bestScoreDisplay) {
+        bestScoreDisplay.textContent = Math.max(score, previousBestScore);
+    }
 
     // Message de fin de partie adapté à la cause de défaite
     const titleFr = gameOverEl.querySelector('h2.lang-fr');
     const titleEn = gameOverEl.querySelector('h2.lang-en');
-    const subFr = gameOverEl.querySelector('p.lang-fr');
-    const subEn = gameOverEl.querySelector('p.lang-en');
     if (reason === 'hive') {
         if (titleFr) titleFr.textContent = '🐝 La ruche est envahie !';
         if (titleEn) titleEn.textContent = '🐝 The hive is invaded!';
-        if (subFr) subFr.textContent = 'frelons éliminés avant l\'invasion';
-        if (subEn) subEn.textContent = 'hornets eliminated before invasion';
     } else if (reason === 'bee') {
         if (titleFr) titleFr.textContent = '🐝 Score négatif !';
         if (titleEn) titleEn.textContent = '🐝 Negative score!';
-        if (subFr) subFr.textContent = 'vous avez touché trop d\'abeilles';
-        if (subEn) subEn.textContent = 'you hit too many bees';
     } else if (reason === 'timeout') {
         if (titleFr) titleFr.textContent = '⏰ Temps écoulé !';
         if (titleEn) titleEn.textContent = '⏰ Time\'s up!';
-        if (subFr) subFr.textContent = 'frelons éliminés';
-        if (subEn) subEn.textContent = 'hornets eliminated';
     }
 
     gameOverEl.style.display = 'flex';
@@ -365,6 +352,9 @@ function resetGame() {
     const hiveScoreEl = document.getElementById('hive-score-val');
     if (hiveScoreEl) hiveScoreEl.textContent = '0';
 }
+
+// === BLOQUER LE SCROLL TACTILE (page mini-jeu) ===
+document.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 
 // === ÉCOUTEURS D'ÉVÉNEMENTS ===
 startBtnFr.addEventListener('click', startGame);

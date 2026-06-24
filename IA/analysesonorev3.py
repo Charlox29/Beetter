@@ -34,8 +34,11 @@ frelon1, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fich
 frelon2, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon2.wav", sr=8000)
 frelon3, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon3.wav", sr=8000)
 frelon4, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon4.wav", sr=8000)
+frelon5, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon5.wav", sr=8000)
+frelon6, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon6.wav", sr=8000)
+frelon7, _ = librosa.load("C:/Users/simon/Desktop/Esiee/projet fin d'année/fichier sonore frelon asiatique/frelon7.wav", sr=8000)
 
-frelon = np.concatenate((frelon1, frelon2, frelon3, frelon4))
+frelon = np.concatenate((frelon1, frelon2, frelon3, frelon4,frelon5,frelon6,frelon7))
 
 taille_fenetre = 3 * sr  # 3 secondes
 saut = 3 * sr            # Pas de chevauchement !
@@ -200,8 +203,12 @@ modele_c = RandomForestClassifier(n_estimators=100, random_state=42)
 modele_c.fit(C_train, D_train) 
 print(f"🎯 VRAIE Précision Reine : {modele_c.score(C_test, D_test) * 100:.2f}%")
 
-modele_e = joblib.load("modele_essaimage.pkl")
+# On force Python à créer le dossier "models" s'il n'existe pas
+os.makedirs('models', exist_ok=True)
+
+# On EXPORTE (dump) les 3 modèles dans ce dossier
 joblib.dump(modele_f, 'models/detector_frelon.pkl')
+joblib.dump(modele_e, 'models/detector_essaimage.pkl')
 joblib.dump(modele_c, 'models/detector_reine.pkl')
 
 # ==========================================

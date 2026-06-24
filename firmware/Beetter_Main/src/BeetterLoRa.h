@@ -82,7 +82,7 @@ class BeetterLoRa {
 public:
     bool begin(uint8_t rxPin, uint8_t txPin, float frequence = 868.0f);
 
-    /** Envoie ENV + AUD concaténés en une seule trame (96 bytes) */
+    /** Envoie ENV + AUD concaténés en une seule trame (100 bytes) */
     bool envoyerTrame(const char* hiveId, uint32_t ts, uint32_t seq,
                       float tempInt, float humInt,
                       float tempExt, float humExt,

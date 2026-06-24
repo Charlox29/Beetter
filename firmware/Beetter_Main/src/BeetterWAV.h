@@ -10,7 +10,7 @@
  *   WAV_DUREE_SEC     15    → durée du clip en secondes
  *   WAV_GAIN_SHIFT     3    → atténuation (-18 dB, adapté au bruit de ruche)
  *
- *  Format fichier : /wav/B001_20260616_1258_c0050.wav
+ *  Format fichier : /wav/B001_20260616_132700.wav
  *   Canal gauche (L) = micro EXTÉRIEUR (J2)
  *   Canal droit  (R) = micro INTÉRIEUR (J5)
  *

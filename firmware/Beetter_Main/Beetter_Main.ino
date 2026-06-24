@@ -8,7 +8,7 @@
  *  3. MFCC INT (3s)
  *  4. MFCC EXT (3s)
  *  5. Écriture SD (3 fichiers ouverts une seule fois par cycle)
- *  6. Envoi LoRa (blocs 0xE0 ENV + 0xA0 AUD = 96 bytes)
+ *  6. Envoi LoRa (blocs 0xE0 ENV + 0xA0 AUD = 100 bytes)
  *  7. Attente duty cycle
  *
  *  Optimisations appliquées :
@@ -69,12 +69,17 @@ void setup() {
     Serial.printf (  "║    Ruche : %-20s║\n", BEETTER_HIVE_ID);
     Serial.println(F("╚════════════════════════════════╝\n"));
 
+    // ── RTC AVANT la SD ───────────────────────────────────────
+    // L'horloge système doit être calée sur le RTC avant toute écriture
+    // SD, sinon les fichiers sont datés au plancher FAT (1980-01-01).
+    Wire.begin(I2C0_SDA, I2C0_SCL);
+    Wire.setClock(100000);   // 100 kHz : marge de bruit accrue (bus partagé, milieu humide)
+    if (rtc.begin()) rtc.synchroniserHorlogeSysteme();
+    else             Serial.println(F("[WARN] RTC absent."));
+
     sdPrete = sd.begin(SD_SCK, SD_MISO, SD_MOSI, SD_CS, SD_DET);
     if (!sdPrete) Serial.println(F("[WARN] SD non disponible."));
     else { sd.listerRacine(); _initFichiersCSV(); }
-
-    Wire.begin(I2C0_SDA, I2C0_SCL);
-    if (!rtc.begin()) Serial.println(F("[WARN] RTC absent."));
 
     if (!sht.begin(I2C0_SDA, I2C0_SCL, SW_SDA, SW_SCL))
         Serial.println(F("[WARN] Aucun SHT40 trouvé."));
@@ -115,6 +120,10 @@ void loop() {
     unsigned long debutCycle = millis();
     seqLoRa++;
     Serial.printf("\n══ Cycle #%lu ══\n", (unsigned long)seqLoRa);
+
+    // Recalage périodique (~1 h) de l'horloge système sur le RTC :
+    // borne la dérive de l'oscillateur ESP32 → dates FAT restent justes.
+    if (rtc.isReady() && (seqLoRa % 120 == 0)) rtc.synchroniserHorlogeSysteme();
 
     // ── 1. SHT40 ─────────────────────────────────────────────
     MesureSHT40 mesureInt = sht.lireInterieur(0);

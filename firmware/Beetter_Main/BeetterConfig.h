@@ -74,11 +74,11 @@
 //   Photo      : ~5ms
 //   MFCC INT   : ~3000ms
 //   MFCC EXT   : ~3000ms
-//   LoRa envoi : ~242ms
-//   TOTAL      : ~6.3s actif
+//   LoRa envoi : ~180ms  (cf. LORA_TOA_MS dans BeetterLoRa.h)
+//   TOTAL      : ~6.2s actif
 //
 //  Duty cycle LoRa 868MHz (ETSI) : 1% max
-//  ToA mesuré ENV+AUD : ~242ms → intervalle min légal : 25s
+//  ToA mesuré ENV+AUD : ~180ms → intervalle min légal : ~18s
 //  On utilise 30s pour être à l'aise.
 #define CYCLE_INTERVAL_MS   30000UL   // 30s entre deux cycles complets
 
@@ -125,6 +125,6 @@
 // ─── WATCHDOG ─────────────────────────────────────────────────
 // Redémarre automatiquement si le programme se bloque (bug I2S, SD, etc.)
 // Doit être > durée d'un cycle complet avec WAV :
-//   ~9.5s mesures + 15s WAV + marge = 30s minimum
+//   ~6.2s mesures + 15s WAV + marge ≈ 21s (sur un cycle nominal de 30s)
 // On prend 60s pour être à l'aise.
 #define WDT_TIMEOUT_SEC   60

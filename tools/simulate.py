@@ -32,6 +32,73 @@ from datetime import datetime, timezone, timedelta
 
 import requests
 
+import sys
+from pathlib import Path
+
+# ─── Inference (IA) ──────────────────────────────────────────
+_IA_DIR = Path(__file__).parent.parent / "IA"
+sys.path.insert(0, str(_IA_DIR))
+
+try:
+    import torch
+    from beehive.model import ContrastiveBeehiveModel, BeehiveFineTuner
+    from beehive.data import FeatureNormalizer
+    from beehive.config import MODEL_CFG
+    from beehive.inference import BeehiveInference
+    from influxdb_client import InfluxDBClient, Point, WritePrecision
+    from influxdb_client.client.write_api import SYNCHRONOUS
+    import os
+
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).parent.parent / "app" / ".env")
+    _INFERENCE_AVAILABLE = True
+except ImportError as _e:
+    print(f"[inference] non disponible : {_e}")
+    _INFERENCE_AVAILABLE = False
+
+def _charger_inference():
+    if not _INFERENCE_AVAILABLE:
+        return None
+    try:
+        backbone  = ContrastiveBeehiveModel(MODEL_CFG)
+        finetuner = BeehiveFineTuner(backbone)
+        state = torch.load(_IA_DIR / "checkpoints/finetune_best.pt", map_location="cpu", weights_only=True)
+        finetuner.load_state_dict(state)
+        norm_in  = FeatureNormalizer.load(_IA_DIR / "calibration/norm_in.json")
+        norm_out = FeatureNormalizer.load(_IA_DIR / "calibration/norm_out.json")
+        print("[inference] Modèle chargé.")
+        return BeehiveInference(finetuner, norm_in, norm_out)
+    except Exception as e:
+        print(f"[inference] Impossible de charger le modèle : {e}")
+        return None
+
+def _ecrire_influx_anomalie(result, beehive_id: str, ts_iso: str) -> None:
+    if not _INFERENCE_AVAILABLE:
+        return
+    try:
+        url = "http://localhost:8086"
+        token = os.getenv("INFLUXDB_TOKEN", "")
+        org   = os.getenv("INFLUXDB_ORG",  "")
+        with InfluxDBClient(url=url, token=token, org=org) as client:
+            write_api = client.write_api(write_options=SYNCHRONOUS)
+            point = (
+                Point("anomaly_score")
+                .tag("hive_id", str(beehive_id))
+                .field("p_normal",  float(result.probabilities[0]))
+                .field("p_anomaly", float(result.probabilities[1]))
+                .field("label",     result.label)
+                .field("alert",     result.alert)
+                .time(ts_iso, "s")
+            )
+            write_api.write(bucket="anomaly", org=org, record=point)
+            print(f"  [AI] {result.label} — normal={result.probabilities[0]:.0%} "
+                  f"anomaly={result.probabilities[1]:.0%}"
+                  f"{' ⚠ ALERTE' if result.alert else ''}")
+    except Exception as e:
+        print(f"  [AI] Erreur InfluxDB : {e}")
+
+_inference_engine = _charger_inference()
+
 DEFAULT_URL      = "http://localhost:5000"
 DEFAULT_IDS      = ["B001"]
 DEFAULT_INTERVAL = 10
@@ -221,6 +288,24 @@ def send(url: str, payload: dict) -> bool:
                   f"H={payload['humidity_int']}%  "
                   f"f={payload['sound_freq_int']}Hz  "
                   f"@ {payload['timestamp']}{mfcc_tag}")
+                    # ── Inference ────────────────────────────────────
+            if _inference_engine is not None and "mfcc_int" in payload:
+                features = {
+                    "t_in_C":          payload["temperature_int"],
+                    "h_in_pct":        payload["humidity_int"],
+                    "t_out_C":         payload["temperature_ext"],
+                    "h_out_pct":       payload["humidity_ext"],
+                    "dom_freq_in_hz":  payload["sound_freq_int"],
+                    "rms_in":          payload["sound_amp_int"],
+                    "dom_freq_out_hz": payload["sound_freq_ext"],
+                    "rms_out":         payload["sound_amp_ext"],
+                    **{f"mfcc_in_{i}":  payload["mfcc_int"][i] for i in range(13)},
+                    **{f"mfcc_out_{i}": payload["mfcc_ext"][i] for i in range(13)},
+                    "timestamp_min": 0, "anomaly_flag": 0,
+                }
+                result = _inference_engine.infer_from_features(features)
+                _ecrire_influx_anomalie(result, payload["beehive_id"], payload["timestamp"])
+            # ─────────────────────────────────────────────────
             return True
         print(f"  ✗  HTTP {r.status_code}: {r.text}")
         return False

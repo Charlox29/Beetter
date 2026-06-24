@@ -3,6 +3,8 @@ checkpoints/
 calibration/
 tsne/
 data/
+cluster_output/
+tsne_explore/
 
 # Python
 __pycache__/

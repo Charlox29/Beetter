@@ -11,11 +11,11 @@
 
 # Beetter — Système de surveillance de ruches
 
-Beetter est une plateforme IoT de bout en bout pour la surveillance de ruches. Chaque ruche est équipée de **nœuds capteurs** (un module intérieur et un module extérieur) qui relèvent température, humidité, niveau sonore (fréquence, amplitude et coefficients MFCC) et luminosité, puis transmettent ces mesures sous forme de **trames binaires LoRa**. Un **Raspberry Pi** reçoit les trames, les décode et les stocke dans InfluxDB. Il expose un dashboard web et pousse périodiquement les données vers un **serveur distant** qui agrège plusieurs Raspberry Pi. Un **pipeline ML** tourne séparément pour classifier l'état de la ruche à partir des données acoustiques.
+Beetter est une plateforme IoT de bout en bout pour la surveillance de ruches. Chaque ruche est équipée de **nœuds capteurs** (un module intérieur et un module extérieur) qui relèvent température, humidité, niveau sonore (fréquence, amplitude et coefficients MFCC) et luminosité, puis transmettent ces mesures sous forme de **trames binaires LoRa**. Un **Raspberry Pi** reçoit les trames, les décode et les stocke dans InfluxDB. Il expose un dashboard web et pousse périodiquement les données vers un **serveur distant** qui agrège plusieurs Raspberry Pi. Une **application mobile Flutter** (Android + iOS) interroge ce serveur pour un accès mobile. Un **pipeline ML** tourne séparément pour classifier l'état de la ruche à partir des données MFCC.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│  Firmware ESP32  (Firmware/)                                        │
+│  Firmware ESP32  (firmware/)                                        │
 │  Nœud intérieur            Nœud extérieur                          │
 │  (SHT40 + micro → MFCC)    (SHT40 + micro → MFCC + photorésistance)│
 └──────────────────┬──────────────────────────────────────────────────┘
@@ -28,18 +28,33 @@ Beetter est une plateforme IoT de bout en bout pour la surveillance de ruches. C
         │  • Web App Flask :5000   │──→ InfluxDB + PostgreSQL (local)
         │  • Scheduler (push data) │
         └──────────┬───────────────┘
-                   │  POST /api/push  (Bearer API key)
+                   │  POST /api/push  (Bearer API key)  ← offline-safe
                    ▼
         ┌──────────────────────────┐
         │  Serveur distant         │  Flask :5001
-        │  • Dashboard agrégé      │──→ InfluxDB + PostgreSQL (distant)
+        │  • Dashboard admin       │──→ InfluxDB + PostgreSQL (distant)
         │  • Gestion des API keys  │
-        │  • API REST mobile       │
+        │  • Gestion des utilisateurs│
+        │  • API REST mobile (JWT) │
         └──────────┬───────────────┘
-                   │  API REST  (Bearer session token)
+                   │  API REST  (Bearer JWT, 30 jours)
                    ▼
-            Application Android
+        Application mobile Flutter (Android + iOS)
 ```
+
+> **Authentification centralisée (Option A — JWT)** : le serveur distant est le fournisseur d'identité. Les utilisateurs créent un compte sur le serveur. L'application Pi peut être liée au serveur — les utilisateurs se connectent alors avec leurs identifiants distants, même hors ligne (le compte est mis en cache localement au premier login). Voir [`docs/AUTH.md`](docs/AUTH.md).
+
+## Documentation technique
+
+| Document | Contenu |
+|---|---|
+| [docs/AUTH.md](docs/AUTH.md) | Architecture d'authentification JWT — pont Pi/serveur, flux mobile, configuration |
+| [docs/API.md](docs/API.md) | Référence complète des endpoints REST (app/ et server/) |
+| [docs/APP.md](docs/APP.md) | Application Pi — blueprints, modèles, scheduler, pipeline InfluxDB, seuils |
+| [docs/SERVER.md](docs/SERVER.md) | Serveur distant — API REST, dashboard admin, JWT, Docker |
+| [docs/MOBILE.md](docs/MOBILE.md) | Application mobile Flutter — architecture Riverpod, services, build |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Guide de déploiement — Docker, systemd, LoRa, Nginx, sauvegardes |
+| [docs/INFRASTRUCTURE.md](docs/INFRASTRUCTURE.md) | Schémas infra, flux de données, schémas BDD, ports, variables d'env |
 
 ---
 
@@ -188,7 +203,23 @@ L'application Flask qui tourne sur le Raspberry Pi. Elle reçoit les relevés vi
 | `calendar/` | `/calendar` | Calendrier des événements de ruche |
 | `export/` | `/export` | Export CSV de données brutes |
 | `setup/` | `/setup` | Assistant de première configuration |
-| `utils/` | — | Helpers : InfluxDB, push, seuils, statut, géocodage |
+| `utils/` | — | Helpers transverses : InfluxDB, push, seuils, statut, géocodage |
+
+**Modèles PostgreSQL** (`models.py`) :
+
+| Modèle | Rôle |
+|---|---|
+| `User` | Compte utilisateur (username, email, rôle : viewer / editor / admin) |
+| `Beehive` | Ruche (nom, adresse, config LoRa, statut, coordonnées GPS) |
+| `Alert` | Journal des changements de statut (source : seuil auto ou manuel) |
+| `RemoteServerConfig` | Config de push vers un serveur distant (URL, API key, intervalle) |
+| `HiveEvent` | Événement de calendrier lié à une ruche |
+| `UserHiveIndicator` | Indicateurs affichés par utilisateur par ruche (préférences dashboard) |
+| `UserPreferences` | Préférences utilisateur (langue, unité, notifications, accessibilité) |
+
+**Pipeline de données** : un relevé arrive sur `POST /api/data` → la route vérifie la ruche (PostgreSQL) → écrit les 9 scalaires + jusqu'à 26 MFCC dans InfluxDB → vérifie les seuils et crée une alerte si nécessaire → le dashboard lit InfluxDB pour tracer les graphes scalaires → toutes les minutes, le scheduler pousse les données récentes vers les serveurs distants. Si le serveur est injoignable, `last_push_at` n'est **pas** avancé : les données seront incluses dans le prochain push réussi.
+
+**Authentification** : locale par défaut. Si un serveur distant est configuré dans **Paramètres → Pont de compte distant**, les identifiants inconnus localement sont vérifiés sur le serveur via JWT bridge (Option A). Voir [docs/AUTH.md](docs/AUTH.md).
 
 **Variables d'environnement** (voir `app/.env.example`) :
 
@@ -289,18 +320,28 @@ Une alerte `pre_swarming` est déclenchée lorsque P(pre_swarming) > 0,40 sur N 
 
 ### 5. Serveur distant (`server/`)
 
-Le serveur d'agrégation centralisé. Les Raspberry Pi lui poussent des lots de données scalaires ; l'application Android l'interroge pour afficher les dashboards.
+Le serveur d'agrégation centralisé. Les Raspberry Pi lui poussent des lots de données scalaires ; l'application mobile Flutter l'interroge pour afficher les dashboards.
 
-**Stack** : Flask 3, PostgreSQL, InfluxDB 2, Gunicorn.
+**Stack** : Flask 3, PostgreSQL (utilisateurs / API keys), InfluxDB 2, Gunicorn.
+
+**Fonctionnalités** :
+
+- Dashboard web affichant toutes les ruches de tous les Raspberry Pi connectés
+- Gestion des utilisateurs (admin) : attribution du rôle viewer/admin, suppression
+- Gestion des API keys (génération / révocation)
+- **API REST mobile avec authentification JWT** (HS256, expiration 30 jours)
+- Endpoint `/api/auth/verify` pour le pont JWT avec l'app Pi (voir [docs/AUTH.md](docs/AUTH.md))
+- Réception des données poussées via `POST /api/push` (Bearer API key)
 
 **Endpoints REST** :
 
 | Méthode | Chemin | Auth | Description |
 |---|---|---|---|
-| `POST` | `/api/auth/login` | — | Connexion mobile → token de session |
-| `POST` | `/api/auth/logout` | Bearer token | Invalide la session |
-| `GET` | `/api/beehives` | Bearer token / API key | Liste les ruches avec dernières valeurs |
-| `GET` | `/api/beehives/<id>/data` | Bearer token / API key | Données graphe (`?range=24h`) |
+| `POST` | `/api/auth/login` | — | Connexion mobile → JWT |
+| `POST` | `/api/auth/verify` | — | Vérifie identifiants et retourne JWT (pont Pi) |
+| `POST` | `/api/auth/logout` | Bearer JWT | Déconnexion (côté client) |
+| `GET` | `/api/beehives` | Bearer JWT / API key | Liste les ruches avec dernières valeurs |
+| `GET` | `/api/beehives/<id>/data` | Bearer JWT / API key | Données graphe (`?range=24h`) |
 | `POST` | `/api/push` | Bearer API key | Réception d'un lot depuis le Raspberry Pi |
 
 **Variables d'environnement** (voir `server/.env.example`) :
@@ -308,29 +349,34 @@ Le serveur d'agrégation centralisé. Les Raspberry Pi lui poussent des lots de 
 | Variable | Description |
 |---|---|
 | `SECRET_KEY` | Clé secrète Flask (**différente** de celle de l'app web) |
+| `JWT_SECRET_KEY` | Secret de signature JWT (partagé avec les instances app/ liées) |
 | `DATABASE_URL` | Chaîne de connexion PostgreSQL |
 | `INFLUXDB_URL` | URL InfluxDB |
 | `INFLUXDB_TOKEN` | Token InfluxDB |
 | `INFLUXDB_ORG` | Organisation InfluxDB |
 | `INFLUXDB_BUCKET` | Bucket InfluxDB |
 
+> `JWT_SECRET_KEY` est également la valeur à renseigner dans **app/ → Paramètres → Pont de compte distant** pour activer le bridge d'authentification.
+
 ---
 
-### 6. Application Android (`android/`)
+### 6. Application mobile (`mobile/`)
 
-Application Android native qui se connecte au serveur distant et affiche les données des ruches en temps réel.
+Application Flutter cross-platform (Android + iOS) qui se connecte au serveur distant et affiche les données des ruches en temps réel.
 
-**Stack** : Kotlin, Jetpack Compose, Retrofit 2 + OkHttp, Gson, DataStore, WorkManager.
+**Stack** : Flutter, Dart, Riverpod (état), go_router (navigation), Dio (HTTP), fl_chart (graphes), flutter_secure_storage (stockage sécurisé), workmanager + flutter_local_notifications (alertes arrière-plan).
+
+**Architecture** : providers Riverpod (`auth_provider`, `beehives_provider`) + services (`ApiService`, `StorageService`) + écrans + widgets.
 
 **Fonctionnalités** :
 
-- Connexion avec l'URL du serveur, nom d'utilisateur et mot de passe (token stocké via DataStore)
-- Dashboard listant toutes les ruches avec les dernières valeurs de température et humidité
-- Écran de détail : graphe par mesure scalaire, plage de temps sélectionnable
-- Alertes en arrière-plan via WorkManager (seuils min/max configurables)
+- Connexion avec l'URL du serveur, nom d'utilisateur et mot de passe (JWT stocké de façon sécurisée)
+- Dashboard listant toutes les ruches avec les 9 mesures scalaires
+- Écran de détail d'une ruche : graphes température, humidité, fréquence sonore, amplitude et luminosité, plage de temps sélectionnable (1h/6h/24h/7d/30d)
+- Alertes en arrière-plan toutes les 15 minutes via WorkManager
 - Paramètres : seuils de notification, déconnexion
 
-**Prérequis** : Android 8.0 (API 26) ou supérieur.
+**Prérequis** : Android 8.0 (API 26) ou supérieur — iOS 12 ou supérieur (build depuis macOS + Xcode requis).
 
 ---
 
@@ -463,34 +509,48 @@ Ouvre `http://<ip-du-serveur>:5001`. Génère une API key : **Dashboard → API 
 
 ### Connexion de l'application web au serveur distant
 
+**Push de données** :
+
 1. Ouvre `http://<ip-du-raspberry-pi>:5000` et connecte-toi.
 2. Va dans **Paramètres → Ajouter un serveur**.
 3. Renseigne l'URL du serveur, l'API key et l'intervalle de push (en minutes).
 4. Sauvegarde. Le badge de statut passe au **vert** au premier push réussi.
 
+> **Comportement hors ligne** : si le serveur est inaccessible, les données sont conservées et incluses dans le prochain push réussi. Le curseur `last_push_at` n'est avancé que sur les push réussis.
+
+**Pont de compte (optionnel — pour l'authentification centralisée)** :
+
+1. Va dans **Paramètres → Pont de compte distant** (admin seulement).
+2. Renseigne l'URL du serveur et le `JWT_SECRET_KEY` configuré côté serveur.
+3. Sauvegarde. Les utilisateurs peuvent désormais se connecter avec leurs identifiants du serveur central, même sans internet (le compte est mis en cache localement).
+
+Voir [docs/AUTH.md](docs/AUTH.md) pour le détail du fonctionnement.
+
 ---
 
-### Application Android
+### Application mobile Flutter
 
-#### Build
+**Prérequis** : [Flutter SDK](https://docs.flutter.dev/get-started/install) installé.
 
-**Depuis Android Studio** (Hedgehog 2023.1 ou ultérieur) :
-1. Ouvre le dossier `android/` comme projet.
-2. Attends la synchronisation Gradle.
-3. **Build → Build Bundle(s) / APK(s) → Build APK(s)**.
-
-**Depuis la ligne de commande** :
+#### Build Android
 
 ```bash
-cd android
-./gradlew assembleDebug      # Linux / macOS
-gradlew.bat assembleDebug    # Windows
+cd mobile
+flutter pub get
+flutter build apk --release
 ```
 
-#### Installation
+```bash
+# Installation directe
+adb install build/app/outputs/flutter-apk/app-release.apk
+```
+
+#### Build iOS (macOS + Xcode requis)
 
 ```bash
-adb install android/app/build/outputs/apk/debug/app-debug.apk
+cd mobile
+flutter pub get
+flutter build ios --release
 ```
 
 #### Premier lancement
@@ -504,7 +564,7 @@ adb install android/app/build/outputs/apk/debug/app-debug.apk
 ## Développement — démarrage rapide (sans Docker)
 
 ```bash
-# Application web
+# Application web (Raspberry Pi)
 cd app
 python -m venv .venv
 source .venv/bin/activate        # Windows: .venv\Scripts\activate
@@ -521,8 +581,13 @@ cd server
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-cp .env.example .env
+cp .env.example .env             # édite SECRET_KEY, JWT_SECRET_KEY, DATABASE_URL / INFLUXDB_*
 flask run --debug --port 5001
+
+# Application mobile
+cd mobile
+flutter pub get
+flutter run                      # sur appareil connecté ou émulateur
 ```
 
 ---
@@ -556,14 +621,26 @@ beetter/
 │   └── Dockerfile
 ├── server/                 # Serveur d'agrégation distant (Flask :5001)
 │   ├── blueprints/
-│   │   ├── api/            # API REST mobile & push
+│   │   ├── api/           # API REST mobile & push (JWT, /auth/verify)
 │   │   ├── auth/
-│   │   ├── dashboard/
-│   │   └── utils/          # Helpers InfluxDB
-│   ├── models.py           # User, ApiKey, UserSession
+│   │   ├── dashboard/     # Dashboard + gestion utilisateurs (admin)
+│   │   └── utils/         # Helpers InfluxDB
+│   ├── models.py          # User, ApiKey
 │   ├── compose.yml
 │   └── Dockerfile
-├── Firmware/               # Firmware ESP32 (Arduino / C++)
+├── mobile/                # Application mobile Flutter (Android + iOS)
+│   ├── lib/
+│   │   ├── main.dart      # Entrée, WorkManager init, GoRouter
+│   │   ├── theme/         # Design system (amber, dark sidebar)
+│   │   ├── models/        # Beehive, SensorValue, ChartSeries
+│   │   ├── services/      # ApiService (Dio + JWT), StorageService
+│   │   ├── providers/     # auth_provider, beehives_provider (Riverpod)
+│   │   ├── screens/       # login, dashboard, hive_detail, settings
+│   │   └── widgets/       # BeehiveCard, LineChartCard, StatusDot
+│   ├── android/           # Config Android (minSdk 26, fr.esiee.beetter)
+│   ├── ios/               # Config iOS (bundle fr.esiee.beetter)
+│   └── pubspec.yaml
+├── Firmware/              # Firmware ESP32 (Arduino / C++)
 │   ├── src/
 │   │   ├── BeetterConfig.h               # Configuration (fréquence, SF, ID ruche…)
 │   │   └── libraries/
@@ -586,11 +663,9 @@ beetter/
 │   ├── receiver.py         # Décode blocs ENV / AUD, envoie à l'API Flask
 │   ├── grove_lora.py       # Pilote série du module Grove LoRa
 │   └── requirements.txt
-├── android/                # Application Android (Kotlin + Jetpack Compose)
-│   └── app/src/main/java/fr/esiee/beetter/
-│       ├── data/           # Retrofit, modèles, DataStore, repository
-│       ├── ui/             # Écrans et ViewModels
-│       └── worker/         # Worker d'alertes (WorkManager)
+├── docs/                  # Documentation technique
+│   ├── AUTH.md            # Architecture d'authentification centralisée (JWT)
+│   └── API.md             # Référence complète de l'API REST
 └── tools/
     └── simulate.py         # Simulateur de données capteurs (avec MFCC simulés)
 ```

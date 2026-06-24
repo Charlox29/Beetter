@@ -20,7 +20,7 @@ Usage (from Beetter/IA/inference/):
 Optional flags:
   --interval     30          Polling interval in seconds (default: 30)
   --hive-id      B001        Hive ID tag to filter from sensors bucket
-  --env          ../../app/.env   Path to the .env file with InfluxDB credentials
+  --env          ../../.env        Path to the .env file with InfluxDB credentials
   --checkpoint   ../checkpoints/finetune_best.pt
   --norm-in      ../calibration/norm_in.json
   --norm-out     ../calibration/norm_out.json
@@ -118,7 +118,7 @@ def query_recent_sensors(
     from(bucket: "{BUCKET_SENSORS}")
       |> range(start: -{lookback}s)
       |> filter(fn: (r) => r["beehive_id"] == "{hive_id}")
-      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> pivot(rowKey: ["_time"], columnKey: ["_measurement"], valueColumn: "_value")
       |> sort(columns: ["_time"])
     '''
 
@@ -193,7 +193,7 @@ def main():
     p.add_argument("--hive-id",    type=str,   default="B001",
                    help="Hive ID to filter from sensors bucket (default: B001)")
     p.add_argument("--env",        type=str,
-                   default=str(_IA_DIR.parent / "app" / ".env"),
+                   default=str(_IA_DIR.parent / ".env"),
                    help="Path to .env file with InfluxDB credentials")
     p.add_argument("--checkpoint", type=str,
                    default=str(_IA_DIR / "checkpoints" / "finetune_best.pt"))

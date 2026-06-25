@@ -10,6 +10,7 @@ class SensorValue {
 }
 
 class BeehiveLatest {
+  final String? status;
   final SensorValue? temperatureInt;
   final SensorValue? humidityInt;
   final SensorValue? temperatureExt;
@@ -21,6 +22,7 @@ class BeehiveLatest {
   final SensorValue? lightExt;
 
   BeehiveLatest({
+    this.status,
     this.temperatureInt,
     this.humidityInt,
     this.temperatureExt,
@@ -33,6 +35,7 @@ class BeehiveLatest {
   });
 
   factory BeehiveLatest.fromJson(Map<String, dynamic> json) => BeehiveLatest(
+        status: json['status'] as String?,
         temperatureInt: json['temperature_int'] != null
             ? SensorValue.fromJson(json['temperature_int'])
             : null,
@@ -69,6 +72,8 @@ class Beehive {
   final BeehiveLatest? latest;
 
   Beehive({required this.id, this.name, this.latest});
+
+  String get displayName => name ?? 'Ruche $id';
 
   factory Beehive.fromJson(Map<String, dynamic> json) => Beehive(
         id: json['id'].toString(),

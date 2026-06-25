@@ -18,6 +18,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   double _tempMin = 28.0;
   double _humMax = 85.0;
   double _humMin = 40.0;
+  Map<String, bool> _pushPrefs = {};
   bool _loading = true;
 
   @override
@@ -28,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _load() async {
     final s = await _storage.getNotificationSettings();
+    final p = await _storage.getNotificationPrefs();
     if (mounted) {
       setState(() {
         _notificationsOn = s['enabled'] as bool;
@@ -35,9 +37,17 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         _tempMin = s['temp_min'] as double;
         _humMax = s['hum_max'] as double;
         _humMin = s['hum_min'] as double;
+        _pushPrefs = p;
         _loading = false;
       });
     }
+  }
+
+  Future<void> _updatePref(String key, bool value) async {
+    final prefs = await StorageService().getNotificationPrefs();
+    prefs[key] = value;
+    await StorageService().saveNotificationPrefs(prefs);
+    setState(() => _pushPrefs = prefs);
   }
 
   Future<void> _save() async {
@@ -168,6 +178,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         min: 0,
                         max: 60,
                         onChanged: (v) => setState(() => _humMin = v),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _SectionCard(
+                  title: 'Notifications push',
+                  icon: Icons.phone_android_outlined,
+                  children: [
+                    SwitchListTile(
+                      title: const Text('Activer les notifications'),
+                      subtitle: const Text('Recevoir des alertes sur ce téléphone'),
+                      value: _pushPrefs['enabled'] ?? true,
+                      activeColor: kAmberDark,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (v) => _updatePref('enabled', v),
+                    ),
+                    if (_pushPrefs['enabled'] ?? true) ...[
+                      const Divider(height: 1),
+                      SwitchListTile(
+                        title: const Text('🔴 État critique'),
+                        subtitle: const Text('Notifier quand une ruche est en état critique'),
+                        value: _pushPrefs['critical'] ?? true,
+                        activeColor: kAmberDark,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (v) => _updatePref('critical', v),
+                      ),
+                      SwitchListTile(
+                        title: const Text('🟠 État agité / warning'),
+                        subtitle: const Text('Notifier quand une ruche est agitée'),
+                        value: _pushPrefs['warning'] ?? true,
+                        activeColor: kAmberDark,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (v) => _updatePref('warning', v),
+                      ),
+                      SwitchListTile(
+                        title: const Text('⚫ Pas de données'),
+                        subtitle: const Text('Notifier quand une ruche ne répond plus'),
+                        value: _pushPrefs['no_data'] ?? true,
+                        activeColor: kAmberDark,
+                        contentPadding: EdgeInsets.zero,
+                        onChanged: (v) => _updatePref('no_data', v),
                       ),
                     ],
                   ],

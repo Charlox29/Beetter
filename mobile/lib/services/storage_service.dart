@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class StorageService {
@@ -45,6 +46,26 @@ class StorageService {
     await _storage.write(key: _keyTempMin, value: tempMin.toString());
     await _storage.write(key: _keyHumMax, value: humMax.toString());
     await _storage.write(key: _keyHumMin, value: humMin.toString());
+  }
+
+  Future<void> saveNotificationPrefs(Map<String, bool> prefs) async {
+    await _storage.write(key: 'notification_prefs', value: jsonEncode(prefs));
+  }
+
+  Future<Map<String, bool>> getNotificationPrefs() async {
+    final raw = await _storage.read(key: 'notification_prefs');
+    if (raw == null) {
+      return {'enabled': true, 'critical': true, 'warning': true, 'no_data': true};
+    }
+    return Map<String, bool>.from(jsonDecode(raw));
+  }
+
+  Future<String?> getLastKnownStatus(String hiveId) async {
+    return await _storage.read(key: 'hive_status_$hiveId');
+  }
+
+  Future<void> saveLastKnownStatus(String hiveId, String status) async {
+    await _storage.write(key: 'hive_status_$hiveId', value: status);
   }
 
   Future<Map<String, dynamic>> getNotificationSettings() async {

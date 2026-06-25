@@ -12,8 +12,7 @@ class BeehiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = hive.latest;
-    final tInt = l?.temperatureInt?.value;
-    final status = statusFromTemperature(tInt);
+    final status = _statusFromString(hive.latest?.status);
 
     return Card(
       child: InkWell(
@@ -77,6 +76,14 @@ class BeehiveCard extends StatelessWidget {
     );
   }
 }
+
+HiveStatus _statusFromString(String? status) => switch (status?.toLowerCase()) {
+      'critical' => HiveStatus.crit,
+      'warning' || 'agitated' => HiveStatus.warn,
+      'calm' || 'foraging' || 'ventilating' => HiveStatus.ok,
+      'no_data' || 'silent' || '' || null => HiveStatus.noData,
+      _ => HiveStatus.noData,
+    };
 
 class _MetricGrid extends StatelessWidget {
   final BeehiveLatest? latest;

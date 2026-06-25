@@ -2,8 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../models/alert.dart';
 import '../providers/auth_provider.dart';
 import '../providers/beehives_provider.dart';
+import '../services/notification_service.dart';
 import '../theme/app_theme.dart';
 import '../widgets/beehive_card.dart';
 
@@ -45,6 +47,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
     final hivesAsync = ref.watch(beehivesProvider);
     final username = ref.watch(authProvider).username ?? '';
 
+    ref.listen(beehivesProvider, (_, next) {
+      next.whenData((hives) => NotificationService.checkAndNotify(hives));
+    });
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Beetter'),
@@ -57,10 +63,45 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               setState(() => _lastUpdated = DateTime.now());
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.notifications_outlined),
-            tooltip: 'Alerts',
-            onPressed: () => context.push('/alerts'),
+          Consumer(
+            builder: (context, ref, _) {
+              final alerts = ref.watch(alertsProvider);
+              final activeCount = alerts.whenOrNull(
+                    data: (list) =>
+                        list.where((a) => !a.resolved).length,
+                  ) ??
+                  0;
+
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_outlined),
+                    tooltip: 'Alerts',
+                    onPressed: () => context.push('/alerts'),
+                  ),
+                  if (activeCount > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '$activeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
           IconButton(
             icon: const Icon(Icons.settings_outlined),
